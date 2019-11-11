@@ -1,0 +1,10 @@
+package com.baidu.spark.rqg
+
+
+object WindowBoundary {
+  val UNBOUNDED_PRECEDING = "UNBOUNDED PRECEDING"
+  val PRECEDING = "PRECEDING"
+  val CURRENT_ROW = "CURRENT ROW"
+  val FOLLOWING = "FOLLOWING"
+  val UNBOUNDED_FOLLOWING = "UNBOUNDED FOLLOWING"
+}
