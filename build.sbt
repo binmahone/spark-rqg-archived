@@ -7,5 +7,6 @@ organization := "com.baidu"
 scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.6" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+  "com.typesafe" % "config" % "1.4.0"
 )
