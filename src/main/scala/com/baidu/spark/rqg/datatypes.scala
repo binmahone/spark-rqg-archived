@@ -12,7 +12,7 @@ case object FloatType extends DataType[Float]
 case object DoubleType extends DataType[Double]
 
 case class StringType(minLength: Int = 0, maxLength: Int = 10) extends DataType[String] {
-  val MAX_LENGTH = 40
+  val MAX_LENGTH = 256
   require(minLength >= 0 && maxLength <= MAX_LENGTH)
 }
 
