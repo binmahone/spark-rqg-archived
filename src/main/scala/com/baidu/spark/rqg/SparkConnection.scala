@@ -8,15 +8,6 @@ class SparkConnection(connection: Connection) {
     // TODO: error handling
     connection.prepareStatement(query).executeQuery()
   }
-
-  def createTable(table: RQGTable): Unit = {
-    val dropSql = s"DROP TABLE IF EXISTS ${table.name}"
-    runQuery(dropSql)
-    val sql = s"CREATE TABLE ${table.name} (${table.schema}) " +
-      // s"USING ${table.format} " +
-      s"LOCATION '${table.location}'"
-    runQuery(sql)
-  }
 }
 
 object SparkConnection {

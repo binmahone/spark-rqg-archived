@@ -10,7 +10,7 @@ class DataGenerator(
     dbName: String, warehouse: String, tableCount: Int,
     minRowCount: Int, maxRowCount: Int,
     minColumnCount: Int, maxColumnCount: Int,
-    allowedFormats: Array[String], randomSeed: Int = 0) {
+    allowedDataSources: Array[String], randomSeed: Int = 0) {
 
   val sparkConnection: SparkConnection =
     SparkConnection.openConnection("jdbc:hive2://localhost:10000")
@@ -20,16 +20,24 @@ class DataGenerator(
 
   val random = new Random(randomSeed)
 
+  private val TEMP_TABLE_SUFFIX = "_hive_temp"
+
   def populateDB(): Unit = {
     // Generate table properties
     val tables = (1 to tableCount).map { idx =>
-      createRandomRQGTable(s"table_$idx")
+      generateRandomRQGTable(s"table_$idx")
     }
 
-    // Create table
-    tables.foreach { table =>
+    // Create temporary hive table
+    tables.map { table =>
+      if (table.provider != "hive") {
+        table.copy(name = table.name + TEMP_TABLE_SUFFIX, provider = "hive")
+      } else {
+        table
+      }
+    }.foreach { table =>
       prepareTableStorage(table)
-      sparkConnection.createTable(table)
+      createTable(table)
     }
 
     // Generate table date to each table location.
@@ -50,11 +58,24 @@ class DataGenerator(
     sparkSession.sparkContext
       .parallelize(tasks, tasks.length)
       .foreach(TableDataGenerator.populateOutputFile)
+
+    // Load data from temp hive table to target table if necessary
+    tables.filter(_.provider != "hive")
+      .foreach { table =>
+        val tempTable = table.copy(name = table.name + TEMP_TABLE_SUFFIX, provider = "hive")
+        prepareTableStorage(table)
+        createTable(table)
+        sparkConnection.runQuery(
+          s"INSERT OVERWRITE TABLE ${table.dbName}.${table.name} " +
+            s"SELECT * FROM ${table.dbName}.${tempTable.name}")
+        dropTable(tempTable)
+        cleanupTableStorage(tempTable)
+      }
   }
 
-  def createRandomRQGTable(tableName: String): RQGTable = {
+  def generateRandomRQGTable(tableName: String): RQGTable = {
 
-    val location = s"$warehouse/$dbName.db/$tableName"
+    val provider = allowedDataSources(random.nextInt(allowedDataSources.length))
     val columnCount = random.nextInt(maxColumnCount - minColumnCount + 1) + minColumnCount
     val columns = (1 to columnCount).map { idx =>
       val dataType =
@@ -74,16 +95,37 @@ class DataGenerator(
         }
       RQGColumn(s"column_$idx", dataType)
     }
-    RQGTable(tableName, columns, location)
+    RQGTable(dbName, tableName, columns, provider, warehouse)
+  }
+
+  private def createTable(table: RQGTable): Unit = {
+    // always drop table first
+    dropTable(table)
+    val sql = s"CREATE TABLE ${table.dbName}.${table.name} (${table.schema}) " +
+      s"USING ${table.provider} " +
+      s"LOCATION '${table.location}'"
+    sparkConnection.runQuery(sql)
+  }
+
+  private def dropTable(table: RQGTable): Unit = {
+    val sql = s"DROP TABLE IF EXISTS ${table.dbName}.${table.name}"
+    sparkConnection.runQuery(sql)
   }
 
   private def prepareTableStorage(table: RQGTable): Unit = {
+    // always cleanup table storage first
+    cleanupTableStorage(table)
+    val path = new Path(table.location)
+    val fs = path.getFileSystem(new Configuration())
+    fs.mkdirs(path)
+  }
+
+  private def cleanupTableStorage(table: RQGTable): Unit = {
     val path = new Path(table.location)
     val fs = path.getFileSystem(new Configuration())
     if (fs.exists(path)) {
       fs.delete(path, true)
     }
-    fs.mkdirs(path)
   }
 }
 
@@ -98,13 +140,13 @@ object DataGenerator {
     val maxColumnCount = 10
     val minRowCount = 400000
     val maxRowCount = 500000
-    val allowedFormats = Array[String]("text")
-    val seed = 10
+    val allowedDataSources = Array[String]("parquet", "json", "hive")
+    val seed = 100
     val dataGenerator = new DataGenerator(
       dbName, warehouse, tableCount,
       minRowCount, maxRowCount,
       minColumnCount, maxColumnCount,
-      allowedFormats, seed)
+      allowedDataSources, seed)
     dataGenerator.populateDB()
   }
 }
