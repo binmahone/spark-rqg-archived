@@ -29,19 +29,21 @@ class DataGenerator(
     }
 
     // Create temporary hive table
-    tables.map { table =>
+    val bulkLoadTables = tables.map { table =>
       if (table.provider != "hive") {
         table.copy(name = table.name + TEMP_TABLE_SUFFIX, provider = "hive")
       } else {
         table
       }
-    }.foreach { table =>
+    }
+
+    bulkLoadTables.foreach { table =>
       prepareTableStorage(table)
       createTable(table)
     }
 
     // Generate table date to each table location.
-    val tasks = tables.flatMap { table =>
+    val tasks = bulkLoadTables.flatMap { table =>
       val rowCount = random.nextInt(maxRowCount - minRowCount + 1) + minRowCount
       // TODO: get this from user input
       val bytesPerBatch = 10 * 1024 * 1024
@@ -67,7 +69,7 @@ class DataGenerator(
         createTable(table)
         sparkConnection.runQuery(
           s"INSERT OVERWRITE TABLE ${table.dbName}.${table.name} " +
-            s"SELECT * FROM ${table.dbName}.${tempTable.name}")
+            s"SELECT * FROM ${tempTable.dbName}.${tempTable.name}")
         dropTable(tempTable)
         cleanupTableStorage(tempTable)
       }
