@@ -140,8 +140,10 @@ object DataGenerator {
     val tableCount = 5
     val minColumnCount = 3
     val maxColumnCount = 10
-    val minRowCount = 400000
-    val maxRowCount = 500000
+    // val minRowCount = 400000
+    // val maxRowCount = 500000
+    val minRowCount = 400
+    val maxRowCount = 500
     val allowedDataSources = Array[String]("parquet", "json", "hive")
     val seed = 100
     val dataGenerator = new DataGenerator(

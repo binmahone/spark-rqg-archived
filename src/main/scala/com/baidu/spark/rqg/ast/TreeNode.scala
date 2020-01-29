@@ -1,6 +1,9 @@
 package com.baidu.spark.rqg.ast
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+
+import com.baidu.spark.rqg.{DataType, RQGColumn, RQGTable}
 
 abstract class TreeNode(querySession: QuerySession) {
   // TODO: visitor pattern is better
@@ -8,25 +11,157 @@ abstract class TreeNode(querySession: QuerySession) {
 }
 
 // query
-//     : selectClause FROM identifier LIMIT constant
+//     : selectClause FROM relation LIMIT constant
 //     ;
-class Query(querySession: QuerySession) extends TreeNode(querySession) {
-  val random = new Random()
-  // table reference
-  val identifier = new Identifier("table", querySession)
-  val selectClause = new SelectClause(
-    querySession.copy(tables = querySession.tables.filter(_.name == identifier.identifier)))
-  // int value
-  val constant: Int = random.nextInt(100) + 1
-
-  def toSql: String = {
-    s"${selectClause.toSql} FROM ${identifier.toSql} LIMIT $constant"
-  }
-}
 
 // selectClause
 //     : SELECT setQuantifier? identifierSeq
 //     ;
+
+// relation
+//     : identifier joinRelation*
+//     ;
+
+// joinRelation
+//     : joinType JOIN right=relationPrimary joinCriteria?
+
+
+// joinType
+//     : INNER?
+//     | CROSS
+//     | LEFT OUTER?
+//     | LEFT? SEMI
+//     | RIGHT OUTER?
+//     | FULL OUTER?
+//     | LEFT? ANTI
+//     ;
+
+// joinCriteria
+//     : ON booleanExpression
+
+// booleanExpression
+//     : left=identifier '==' right=identifier
+//     ;
+
+// TODO #1: column reference needs table prefix
+// TODO #2: joined columns should have same type
+// TODO #3: selected columns should belong to tables in from clause
+// TODO #4: joined columns should belong to left and right tables
+// TODO #5: join condition data type should be common data type
+// TODO #6: table should have alias
+class Query(querySession: QuerySession) extends TreeNode(querySession) {
+  val random = new Random()
+  // table reference
+  val relation = new Relation(querySession)
+  val selectClause = new SelectClause(
+    querySession.copy(
+      selectedTables = relation.joinRelationSeq.map(_.relationPrimary) :+ relation.relationPrimary))
+  // int value
+  val constant: Int = random.nextInt(100) + 1
+
+  def toSql: String = {
+    s"${selectClause.toSql} FROM ${relation.toSql} LIMIT $constant"
+  }
+}
+
+class Relation(querySession: QuerySession) extends TreeNode(querySession) {
+
+  val random = new Random()
+  val relationPrimary = new RelationPrimary(querySession)
+  val joinRelationSeq: Array[JoinRelation] = generateJoinRelationSeq
+
+  def generateJoinRelationSeq: Array[JoinRelation] = {
+    val joinCount = random.nextInt(querySession.tables.length)
+    val selectedTables = new ArrayBuffer[RelationPrimary]()
+    var qs = querySession
+    selectedTables.append(relationPrimary)
+    (0 until joinCount).map { _ =>
+      qs = qs.copy(selectedTables = selectedTables.toArray)
+      val joinRelation = new JoinRelation(qs)
+      selectedTables.append(joinRelation.relationPrimary)
+      joinRelation
+    }.toArray
+  }
+
+  override def toSql: String = s"${relationPrimary.toSql}" +
+    s"${joinRelationSeq.map(" " + _.toSql).mkString("")}"
+}
+
+class RelationPrimary(querySession: QuerySession) extends TreeNode(querySession) {
+  val tableIdentifier = new Identifier(querySession, "table")
+  val alias: Option[Identifier] = generateAlias
+
+  def generateAlias: Option[Identifier] = {
+    // For now, it's always be true to avoid name conflict with joined tables
+    if (true) Some(new Identifier(querySession, "alias")) else None
+  }
+
+  override def toSql: String = s"${tableIdentifier.toSql}" +
+    s"${alias.map(" AS " + _.toSql).getOrElse("")}"
+
+}
+
+class JoinRelation(querySession: QuerySession) extends TreeNode(querySession) {
+  val random = new Random()
+  val joinType = new JoinType(querySession)
+  val relationPrimary = new RelationPrimary(querySession)
+  val joinCriteria: Option[JoinCriteria] = generateJoinCriteria
+
+  def generateJoinCriteria: Option[JoinCriteria] = {
+    val qs = querySession.copy(joiningTables = Array(relationPrimary))
+    // TODO: always true for debug purpose
+    // if (random.nextBoolean()) Some(new JoinCriteria(qs)) else None
+    if (true) Some(new JoinCriteria(qs)) else None
+  }
+
+  override def toSql: String = s"${joinType.toSql} JOIN ${relationPrimary.toSql}" +
+    s"${joinCriteria.map(" " + _.toSql).getOrElse("")}"
+}
+
+class JoinCriteria(querySession: QuerySession) extends TreeNode(querySession) {
+  val booleanExpression = new BooleanExpression(querySession)
+  override def toSql: String = s"ON ${booleanExpression.toSql}"
+}
+
+class BooleanExpression(querySession: QuerySession) extends TreeNode(querySession) {
+  val random = new Random()
+  val dataType: DataType[_] = {
+    val leftDataTypes = querySession.selectedTables.flatMap { relaion =>
+      querySession.tables.find(_.name == relaion.tableIdentifier.identifier)
+    }.flatMap(_.columns).map(_.dataType).toSet
+
+    val rightDataTypes = querySession.joiningTables.flatMap { relaion =>
+      querySession.tables.find(_.name == relaion.tableIdentifier.identifier)
+    }.flatMap(_.columns).map(_.dataType).toSet
+
+    val dataTypes = leftDataTypes.intersect(rightDataTypes).toArray
+    dataTypes(random.nextInt(dataTypes.length))
+  }
+  val left = new Identifier(
+    querySession,
+    "column",
+    relationPredicate = r => querySession.selectedTables.contains(r),
+    columnPredicate = c => c.dataType == dataType)
+
+  val right = new Identifier(
+    querySession,
+    "column",
+    relationPredicate = r => querySession.joiningTables.contains(r),
+    columnPredicate = c => c.dataType == dataType)
+
+  override def toSql: String = s"${left.toSql} == ${right.toSql}"
+}
+
+class JoinType(querySession: QuerySession) extends TreeNode(querySession) {
+  val random = new Random()
+  // LEFT SEMI/ANTI JOIN is invisible for select clause
+  // val types = Array("INNER", "CROSS", "LEFT OUTER", "LEFT SEMI", "RIGHT OUTER", "FULL OUTER", "LEFT SEMI")
+  val types = Array("INNER", "CROSS", "LEFT OUTER", "RIGHT OUTER", "FULL OUTER")
+  val joinType = types(random.nextInt(types.length))
+
+  override def toSql: String = joinType
+}
+
 class SelectClause(querySession: QuerySession) extends TreeNode(querySession) {
   val random = new Random()
   val setQuantifier: Option[SetQuantifier] = generateSetQuantifier
@@ -38,7 +173,7 @@ class SelectClause(querySession: QuerySession) extends TreeNode(querySession) {
 
   def generateIdentifierSeq: Seq[Identifier] = {
     val count = random.nextInt(3) + 1
-    (0 until count).map(_ => new Identifier("column", querySession))
+    (0 until count).map(_ => new Identifier(querySession, "column"))
   }
 
   def toSql: String = {
@@ -52,19 +187,31 @@ class SetQuantifier(querySession: QuerySession) extends TreeNode(querySession) {
   def toSql: String = "DISTINCT"
 }
 
-class Identifier(rule: String, querySession: QuerySession) extends TreeNode(querySession) {
+class Identifier(
+  querySession: QuerySession,
+  identifierType: String,
+  tablePredicate: RQGTable => Boolean = _ => true,
+  relationPredicate: RelationPrimary => Boolean = _ => true,
+  columnPredicate: RQGColumn => Boolean = _ => true)
+  extends TreeNode(querySession) {
   val random = new Random()
   val identifier: String = generateIdentifier
   override def toSql: String = identifier
 
   def generateIdentifier: String = {
-    if (rule == "column") {
-      val table = querySession.tables(random.nextInt(querySession.tables.length))
-      val column = table.columns(random.nextInt(table.columns.length))
-      column.name
-    } else {
-      val table = querySession.tables(random.nextInt(querySession.tables.length))
+    if (identifierType == "column") {
+      val relations = (querySession.selectedTables ++ querySession.joiningTables).filter(relationPredicate)
+      val relation = relations(random.nextInt(relations.length))
+      val columns = querySession.tables.find(_.name == relation.tableIdentifier.identifier).get.columns.filter(columnPredicate)
+      val column = columns(random.nextInt(columns.length))
+      s"${relation.alias.getOrElse(relation.tableIdentifier).identifier}.${column.name}"
+    } else if (identifierType == "table") {
+      val tables = querySession.tables.filter(tablePredicate)
+      val table = tables(random.nextInt(tables.length))
       table.name
+    } else {
+      // alias
+      s"alias${querySession.nextAliasId.toString}"
     }
   }
 }
