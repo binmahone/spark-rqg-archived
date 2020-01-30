@@ -4,8 +4,8 @@ import com.baidu.spark.rqg.RQGTable
 
 case class QuerySession(
   tables: Array[RQGTable] = Array.empty,
-  selectedTables: Array[RelationPrimary] = Array.empty,
-  joiningTables: Array[RelationPrimary] = Array.empty,
+  primaryRelations: Array[RelationPrimary] = Array.empty,
+  joiningRelations: Array[RelationPrimary] = Array.empty,
   var aliasId: Int = 0) {
 
   def nextAliasId: Int = {
