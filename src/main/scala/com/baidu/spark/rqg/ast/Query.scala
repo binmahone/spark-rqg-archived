@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast
 
 // query
-//     : selectClause fromClause whereClause queryOrganization
+//     : selectClause fromClause whereClause? aggregationClause? queryOrganization
 //     ;
 
 // fromClause
@@ -49,8 +49,9 @@ class Query(querySession: QuerySession, parent: Option[TreeNode] = None) extends
     querySession.copy(
       primaryRelations = fromClause.relation.joinRelationSeq.map(_.relationPrimary) :+
         fromClause.relation.relationPrimary)
-  val selectClause = new SelectClause(newQuerySession, Some(this))
   val whereClause: Option[WhereClause] = generateWhereClause
+  val aggregationClause: Option[AggregationClause] = generateAggregationClause
+  val selectClause = new SelectClause(newQuerySession, Some(this))
   val queryOrganization = new QueryOrganization(querySession, Some(this))
 
   def generateWhereClause: Option[WhereClause] = {
@@ -58,9 +59,14 @@ class Query(querySession: QuerySession, parent: Option[TreeNode] = None) extends
     if (true) Some(new WhereClause(newQuerySession, Some(this))) else None
   }
 
+  def generateAggregationClause: Option[AggregationClause] = {
+    if (random.nextBoolean()) Some(new AggregationClause(newQuerySession, Some(this))) else None
+  }
+
   def toSql: String = {
     s"${selectClause.toSql} ${fromClause.toSql}" +
       s"${whereClause.map(" " + _.toSql).getOrElse("")}" +
+      s"${aggregationClause.map(" " + _.toSql).getOrElse("")}" +
       s" ${queryOrganization.toSql}"
   }
 }
