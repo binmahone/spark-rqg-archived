@@ -4,7 +4,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class Relation(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
 
-  val relationPrimary = new RelationPrimary(querySession)
+  val relationPrimary = new RelationPrimary(querySession, Some(this))
   val joinRelationSeq: Array[JoinRelation] = generateJoinRelationSeq
 
   def generateJoinRelationSeq: Array[JoinRelation] = {
@@ -14,7 +14,7 @@ class Relation(querySession: QuerySession, parent: Option[TreeNode] = None) exte
     selectedTables.append(relationPrimary)
     (0 until joinCount).map { _ =>
       qs = qs.copy(primaryRelations = selectedTables.toArray)
-      val joinRelation = new JoinRelation(qs)
+      val joinRelation = new JoinRelation(qs, Some(this))
       selectedTables.append(joinRelation.relationPrimary)
       joinRelation
     }.toArray
@@ -41,15 +41,15 @@ class RelationPrimary(querySession: QuerySession, parent: Option[TreeNode] = Non
 }
 
 class JoinRelation(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val joinType = new JoinType(querySession)
-  val relationPrimary = new RelationPrimary(querySession)
+  val joinType = new JoinType(querySession, Some(this))
+  val relationPrimary = new RelationPrimary(querySession, Some(this))
   val joinCriteria: Option[JoinCriteria] = generateJoinCriteria
 
   def generateJoinCriteria: Option[JoinCriteria] = {
     val qs = querySession.copy(joiningRelations = Array(relationPrimary))
     // TODO: always true for debug purpose
     // if (random.nextBoolean()) Some(new JoinCriteria(qs)) else None
-    if (true) Some(new JoinCriteria(qs)) else None
+    if (true) Some(new JoinCriteria(qs, Some(this))) else None
   }
 
   override def toSql: String = s"${joinType.toSql} JOIN ${relationPrimary.toSql}" +
@@ -57,7 +57,7 @@ class JoinRelation(querySession: QuerySession, parent: Option[TreeNode] = None) 
 }
 
 class JoinCriteria(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val booleanExpression = new BooleanExpression(querySession)
+  val booleanExpression = ValueExpression(querySession, Some(this))
   override def toSql: String = s"ON ${booleanExpression.toSql}"
 }
 

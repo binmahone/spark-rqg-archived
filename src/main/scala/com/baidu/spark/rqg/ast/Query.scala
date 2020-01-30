@@ -44,16 +44,18 @@ package com.baidu.spark.rqg.ast
 //     | left=columnIdentifier '==' right=constant
 //     ;
 class Query(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val fromClause = new FromClause(querySession)
-  val selectClause = new SelectClause(
+  val fromClause = new FromClause(querySession, Some(this))
+  private val newQuerySession =
     querySession.copy(
-      primaryRelations = fromClause.relation.joinRelationSeq.map(_.relationPrimary) :+ fromClause.relation.relationPrimary))
+      primaryRelations = fromClause.relation.joinRelationSeq.map(_.relationPrimary) :+
+        fromClause.relation.relationPrimary)
+  val selectClause = new SelectClause(newQuerySession, Some(this))
   val whereClause: Option[WhereClause] = generateWhereClause
-  val queryOrganization = new QueryOrganization(querySession)
+  val queryOrganization = new QueryOrganization(querySession, Some(this))
 
   def generateWhereClause: Option[WhereClause] = {
     // if (random.nextBoolean()) Some(new WhereClause(querySession)) else None
-    if (false) Some(new WhereClause(querySession)) else None
+    if (true) Some(new WhereClause(newQuerySession, Some(this))) else None
   }
 
   def toSql: String = {

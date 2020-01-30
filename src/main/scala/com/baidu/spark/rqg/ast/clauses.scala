@@ -5,13 +5,13 @@ class SelectClause(querySession: QuerySession, parent: Option[TreeNode] = None) 
   val identifierSeq: Seq[String] = generateIdentifierSeq
 
   def generateSetQuantifier: Option[SetQuantifier] = {
-    if (random.nextBoolean()) Some(new SetQuantifier(querySession)) else None
+    if (random.nextBoolean()) Some(new SetQuantifier(querySession, Some(this))) else None
   }
 
   def generateIdentifierSeq: Seq[String] = {
     val count = random.nextInt(3) + 1
     (0 until count).map { _ =>
-      val relations = querySession.primaryRelations ++ querySession.joiningRelations
+      val relations = querySession.primaryRelations
       val relation = relations(random.nextInt(relations.length))
       val columns = querySession.tables.find(_.name == relation.tableIdentifier).get.columns
       val column = columns(random.nextInt(columns.length))
@@ -31,12 +31,12 @@ class SetQuantifier(querySession: QuerySession, parent: Option[TreeNode] = None)
 }
 
 class FromClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val relation = new Relation(querySession)
+  val relation = new Relation(querySession, Some(this))
   override def toSql: String = s"FROM ${relation.toSql}"
 }
 
 class WhereClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val booleanExpression = new BooleanExpression(querySession)
+  val booleanExpression = ValueExpression(querySession, Some(this))
   override def toSql: String = s"WHERE ${booleanExpression.toSql}"
 }
 
