@@ -11,11 +11,22 @@ abstract class TreeNode(querySession: QuerySession) {
 }
 
 // query
-//     : selectClause FROM relation LIMIT constant
+//     : selectClause fromClause whereClause queryOrganization
 //     ;
+
+// fromClause
+//     : FROM relation
+//     ;
+
+// whereClause
+//     : WHERE booleanExpression
 
 // selectClause
 //     : SELECT setQuantifier? identifierSeq
+//     ;
+
+// queryOrganization
+//     : LIMIT constant
 //     ;
 
 // relation
@@ -41,27 +52,50 @@ abstract class TreeNode(querySession: QuerySession) {
 
 // booleanExpression
 //     : left=identifier '==' right=identifier
+//     | left=identifier '==' constant
 //     ;
 
-// TODO #1: column reference needs table prefix
-// TODO #2: joined columns should have same type
-// TODO #3: selected columns should belong to tables in from clause
-// TODO #4: joined columns should belong to left and right tables
-// TODO #5: join condition data type should be common data type
-// TODO #6: table should have alias
+// TODO #1: column reference needs table prefix - done
+// TODO #2: joined columns should have same type - done
+// TODO #3: selected columns should belong to tables in from clause - done
+// TODO #4: joined columns should belong to left and right tables - done
+// TODO #5: join condition data type should be common data type - done
+// TODO #6: table should have alias - done
 class Query(querySession: QuerySession) extends TreeNode(querySession) {
   val random = new Random()
-  // table reference
-  val relation = new Relation(querySession)
+  val fromClause = new FromClause(querySession)
   val selectClause = new SelectClause(
     querySession.copy(
-      selectedTables = relation.joinRelationSeq.map(_.relationPrimary) :+ relation.relationPrimary))
-  // int value
-  val constant: Int = random.nextInt(100) + 1
+      selectedTables = fromClause.relation.joinRelationSeq.map(_.relationPrimary) :+ fromClause.relation.relationPrimary))
+  val whereClause: Option[WhereClause] = generateWhereClause
+  val queryOrganization = new QueryOrganization(querySession)
+
+  def generateWhereClause: Option[WhereClause] = {
+    // if (random.nextBoolean()) Some(new WhereClause(querySession)) else None
+    if (false) Some(new WhereClause(querySession)) else None
+  }
 
   def toSql: String = {
-    s"${selectClause.toSql} FROM ${relation.toSql} LIMIT $constant"
+    s"${selectClause.toSql} ${fromClause.toSql}" +
+      s"${whereClause.map(" " + _.toSql).getOrElse("")}" +
+      s" ${queryOrganization.toSql}"
   }
+}
+
+class FromClause(querySession: QuerySession) extends TreeNode(querySession) {
+  val relation = new Relation(querySession)
+  override def toSql: String = s"FROM ${relation.toSql}"
+}
+
+class WhereClause(querySession: QuerySession) extends TreeNode(querySession) {
+  val booleanExpression = new BooleanExpression(querySession)
+  override def toSql: String = s"WHERE ${booleanExpression.toSql}"
+}
+
+class QueryOrganization(querySession: QuerySession) extends TreeNode(querySession) {
+  val random = new Random()
+  val constant: Int = random.nextInt(100) + 1
+  override def toSql: String = s"LIMIT $constant"
 }
 
 class Relation(querySession: QuerySession) extends TreeNode(querySession) {
@@ -215,3 +249,7 @@ class Identifier(
     }
   }
 }
+
+// Use 2 conditions: join condition and where condition ???
+// how to deal with nested booleanExpression
+// booleanExpression type: column cmp column, column cmp constant ...
