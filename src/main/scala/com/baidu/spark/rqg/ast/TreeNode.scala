@@ -2,7 +2,9 @@ package com.baidu.spark.rqg.ast
 
 import scala.util.Random
 
-abstract class TreeNode(querySession: QuerySession, parent: Option[TreeNode]) {
+import org.apache.spark.internal.Logging
+
+abstract class TreeNode(querySession: QuerySession, parent: Option[TreeNode]) extends Logging {
   // TODO: visitor pattern is better
   def toSql: String
 

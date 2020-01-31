@@ -7,7 +7,10 @@ import com.baidu.spark.rqg.{DataType, ValueGenerator}
 // ValueExpression should be value operation, such as PLUS, MINUS, EQ, GT
 // primaryExpression should be the real value, such as column, constant, function
 
-class ColumnComparison(querySession: QuerySession, parent: Option[TreeNode] = None) extends ValueExpression(querySession, parent) {
+class ColumnComparison(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends ValueExpression(querySession, parent) {
   // Step 1: random pick a common data type
   // Think: what if there is no common data type?
   private val dataType: DataType[_] = {
@@ -20,7 +23,8 @@ class ColumnComparison(querySession: QuerySession, parent: Option[TreeNode] = No
     ).flatMap(_.columns).map(_.dataType)
 
     val dataTypes = leftDataTypes.intersect(rightDataTypes).distinct
-    assert(dataTypes.nonEmpty, "left and right relations has no common data type to join")
+    assert(dataTypes.nonEmpty,
+      "left and right relations has no common data type to join")
     dataTypes(random.nextInt(dataTypes.length))
   }
 
@@ -59,7 +63,11 @@ class ColumnComparison(querySession: QuerySession, parent: Option[TreeNode] = No
   override def toSql: String = s"$left $comparator $right"
 }
 
-class ConstantComparison(querySession: QuerySession, parent: Option[TreeNode] = None) extends ValueExpression(querySession, parent) {
+class ConstantComparison(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends ValueExpression(querySession, parent) {
+
   val valueGenerator = new ValueGenerator(random)
   // Step 1: pick a column randomly
   private val relations = querySession.primaryRelations
@@ -77,7 +85,10 @@ class ConstantComparison(querySession: QuerySession, parent: Option[TreeNode] = 
   override def toSql: String = s"$left $comparator $right"
 }
 
-class PrimaryExpression(querySession: QuerySession, parent: Option[TreeNode] = None) extends ValueExpression(querySession, parent) {
+class PrimaryExpression(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends ValueExpression(querySession, parent) {
 
   private val relations = querySession.primaryRelations
   private val relation = relations(random.nextInt(relations.length))
@@ -87,7 +98,10 @@ class PrimaryExpression(querySession: QuerySession, parent: Option[TreeNode] = N
   override def toSql: String = expression
 }
 
-abstract class ValueExpression(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent)
+abstract class ValueExpression(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent)
 
 object ValueExpression {
   def apply(querySession: QuerySession, parent: Option[TreeNode] = None): ValueExpression = {

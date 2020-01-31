@@ -1,6 +1,10 @@
 package com.baidu.spark.rqg.ast
 
-class SelectClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class SelectClause(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   val setQuantifier: Option[SetQuantifier] = generateSetQuantifier
   val identifierSeq: Seq[String] = generateIdentifierSeq
 
@@ -40,26 +44,46 @@ class SelectClause(querySession: QuerySession, parent: Option[TreeNode] = None) 
   }
 }
 
-class SetQuantifier(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class SetQuantifier(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   def toSql: String = "DISTINCT"
 }
 
-class FromClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class FromClause(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   val relation = new Relation(querySession, Some(this))
   override def toSql: String = s"FROM ${relation.toSql}"
 }
 
-class WhereClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class WhereClause(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   val booleanExpression = ValueExpression(querySession, Some(this))
   override def toSql: String = s"WHERE ${booleanExpression.toSql}"
 }
 
-class QueryOrganization(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class QueryOrganization(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   val constant: Int = random.nextInt(100) + 1
   override def toSql: String = s"LIMIT $constant"
 }
 
-class AggregationClause(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+class AggregationClause(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
+
   val groupingExpressions: Seq[ValueExpression] = generateGroupingExpressions
 
   def generateGroupingExpressions: Seq[ValueExpression] = {

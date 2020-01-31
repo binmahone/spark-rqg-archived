@@ -4,8 +4,8 @@ import com.baidu.spark.rqg.ast.{Query, QuerySession}
 
 class QueryGenerator(tables: Array[RQGTable]) {
 
-  def createQuery(): String = {
-    new Query(QuerySession(tables = tables)).toSql
+  def createQuery(): Query = {
+    new Query(QuerySession(tables = tables))
   }
 }
 
@@ -15,7 +15,7 @@ object QueryGenerator {
     SparkConnection.openConnection("jdbc:hive2://localhost:10000")
 
   def main(args: Array[String]): Unit = {
-    println(new QueryGenerator(describeTables("rqg_test_db")).createQuery())
+    println(new QueryGenerator(describeTables("rqg_test_db")).createQuery().toSql)
   }
 
   def describeTables(dbName: String): Array[RQGTable] = {

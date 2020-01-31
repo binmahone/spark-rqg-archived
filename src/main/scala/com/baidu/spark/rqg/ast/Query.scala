@@ -43,24 +43,51 @@ package com.baidu.spark.rqg.ast
 //     : left=columnIdentifier '==' right=columnIdentifier
 //     | left=columnIdentifier '==' right=constant
 //     ;
-class Query(querySession: QuerySession, parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
-  val fromClause = new FromClause(querySession, Some(this))
-  private val newQuerySession =
-    querySession.copy(
-      primaryRelations = fromClause.relation.joinRelationSeq.map(_.relationPrimary) :+
-        fromClause.relation.relationPrimary)
-  val whereClause: Option[WhereClause] = generateWhereClause
-  val aggregationClause: Option[AggregationClause] = generateAggregationClause
-  val selectClause = new SelectClause(newQuerySession, Some(this))
-  val queryOrganization = new QueryOrganization(querySession, Some(this))
+class Query(
+    querySession: QuerySession,
+    parent: Option[TreeNode] = None)
+  extends TreeNode(querySession, parent) {
 
-  def generateWhereClause: Option[WhereClause] = {
-    // if (random.nextBoolean()) Some(new WhereClause(querySession)) else None
-    if (true) Some(new WhereClause(newQuerySession, Some(this))) else None
+  val fromClause: FromClause = generateFromClause
+
+  private val querySessionWithRelations =
+    querySession.copy(primaryRelations = fromClause.relation.primaryRelations)
+
+  val whereClause: Option[WhereClause] = generateWhereClauseOption
+
+  val aggregationClause: Option[AggregationClause] = generateAggregationClauseOption
+
+  val selectClause: SelectClause = generateSelectClause
+
+  val queryOrganization: QueryOrganization = generateQueryOrganization
+
+  def generateFromClause: FromClause = {
+    new FromClause(querySession, Some(this))
   }
 
-  def generateAggregationClause: Option[AggregationClause] = {
-    if (random.nextBoolean()) Some(new AggregationClause(newQuerySession, Some(this))) else None
+  def generateWhereClauseOption: Option[WhereClause] = {
+    // if (random.nextBoolean()) {
+    if (true) { // always be true for debugging
+      Some(new WhereClause(querySessionWithRelations, Some(this)))
+    } else {
+      None
+    }
+  }
+
+  def generateAggregationClauseOption: Option[AggregationClause] = {
+    if (random.nextBoolean()) {
+      Some(new AggregationClause(querySessionWithRelations, Some(this)))
+    } else {
+      None
+    }
+  }
+
+  def generateSelectClause: SelectClause = {
+    new SelectClause(querySessionWithRelations, Some(this))
+  }
+
+  def generateQueryOrganization: QueryOrganization = {
+    new QueryOrganization(querySessionWithRelations, Some(this))
   }
 
   def toSql: String = {
