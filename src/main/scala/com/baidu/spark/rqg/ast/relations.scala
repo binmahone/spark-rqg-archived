@@ -38,6 +38,7 @@ class Relation(
 class RelationPrimary(
     querySession: QuerySession,
     parent: Option[TreeNode] = None) extends TreeNode(querySession, parent) {
+
   val tableIdentifier: String = generateTableIdentifier
   val aliasIdentifier: Option[String] = generateAliasIdentifierOption
 

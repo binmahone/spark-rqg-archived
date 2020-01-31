@@ -5,6 +5,7 @@ import com.baidu.spark.rqg.ast.{Query, QuerySession}
 class QueryGenerator(tables: Array[RQGTable]) {
 
   def createQuery(): Query = {
+    println(tables.mkString("\n"))
     new Query(QuerySession(tables = tables))
   }
 }
