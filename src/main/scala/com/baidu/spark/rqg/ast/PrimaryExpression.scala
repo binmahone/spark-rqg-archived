@@ -19,10 +19,10 @@ object PrimaryExpression extends Logging {
 
     val filteredChoices = parent match {
       // Rule #1: SelectClause should filter some choices
-      case Some(NamedExpression(_, Some(_: SelectClause), _, _)) =>
+      case Some(Predicated(_, Some(NamedExpression(_, Some(_: SelectClause), _, _)), _, _)) =>
         logInfo("Generating PrimaryExpression for SelectClause")
         choices.filter(_ == "ColumnReference")
-      case Some(Comparison(_, Some(_: JoinCriteria), _, _, _)) =>
+      case Some(Comparison(_, Some(Predicated(_, Some(_: JoinCriteria), _, _)), _, _, _)) =>
         logInfo("Generating PrimaryExpression for Comparision of JoinCriteria")
         choices.filter(_ == "ColumnReference")
       case _ =>

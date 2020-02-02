@@ -5,9 +5,9 @@ import com.baidu.spark.rqg.BooleanType
 case class JoinCriteria(
     querySession: QuerySession,
     parent: Option[TreeNode],
-    valueExpression: ValueExpression) extends TreeNode {
+    booleanExpression: BooleanExpression) extends TreeNode {
 
-  override def sql: String = s"ON ${valueExpression.sql}"
+  override def sql: String = s"ON ${booleanExpression.sql}"
 }
 
 object JoinCriteria {
@@ -18,9 +18,9 @@ object JoinCriteria {
 
     val joinCriteria = JoinCriteria(querySession, parent, null)
 
-    val valueExpression = ValueExpression(
+    val booleanExpression = BooleanExpression(
       querySession.copy(allowedDataTypes = Array(BooleanType)), Some(joinCriteria))
 
-    joinCriteria.copy(valueExpression = valueExpression)
+    joinCriteria.copy(booleanExpression = booleanExpression)
   }
 }

@@ -60,12 +60,18 @@ package com.baidu.spark.rqg.ast
 //     ;
 
 // booleanExpression
-//     : valueExpression
+//     : NOT booleanExpression                                            #logicalNot
+//     : valueExpression predicate?                                       #predicated
+//     ;
+
+// predicate
+//     : IS NOT? kind=NULL
+//     | NOT? kind=BETWEEN lower=valueExpression AND upper=valueExpression
 //     ;
 
 // valueExpression
 //     : primaryExpression
-//     | left=valueExpression comparisonOperator right=valueExpression  #comparison
+//     | left=valueExpression comparisonOperator right=valueExpression    #comparison
 //     ;
 
 // comparisonOperator

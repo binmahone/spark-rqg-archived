@@ -5,7 +5,7 @@ import com.baidu.spark.rqg.Utils
 case class NamedExpression(
     querySession: QuerySession,
     parent: Option[TreeNode],
-    expression: ValueExpression,
+    expression: BooleanExpression,
     alias: Option[String]) extends TreeNode {
 
   def name: String = alias.getOrElse(expression.name)
@@ -29,8 +29,8 @@ object NamedExpression {
 
   private def generateExpression(
       querySession: QuerySession,
-      parent: Option[TreeNode]): ValueExpression = {
+      parent: Option[TreeNode]): BooleanExpression = {
 
-    ValueExpression(querySession.copy(), parent)
+    BooleanExpression(querySession.copy(), parent)
   }
 }

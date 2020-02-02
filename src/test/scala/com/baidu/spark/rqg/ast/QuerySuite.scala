@@ -89,6 +89,12 @@ class QuerySuite extends FunSuite {
     }
   }
 
+  test("BooleanExpression") {
+    for (_ <- 0 until 1000) {
+     BooleanExpression(querySessionWithRelations, None).sql
+    }
+  }
+
   test("Query") {
     for (_ <- 0 until 1000) {
       Query(querySession, None).sql
