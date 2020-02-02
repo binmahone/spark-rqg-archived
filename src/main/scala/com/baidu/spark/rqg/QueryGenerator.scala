@@ -1,12 +1,11 @@
 package com.baidu.spark.rqg
 
-import com.baidu.spark.rqg.ast.{Query, QuerySession}
+import com.baidu.spark.rqg.ast.{Column, Query, QuerySession, Table}
 
-class QueryGenerator(tables: Array[RQGTable]) {
+class QueryGenerator(tables: Array[Table]) {
 
   def createQuery(): Query = {
-    println(tables.mkString("\n"))
-    new Query(QuerySession(tables = tables))
+    Query(QuerySession(availableTables = tables))
   }
 }
 
@@ -16,10 +15,10 @@ object QueryGenerator {
     SparkConnection.openConnection("jdbc:hive2://localhost:10000")
 
   def main(args: Array[String]): Unit = {
-    println(new QueryGenerator(describeTables("rqg_test_db")).createQuery().toSql)
+    println(new QueryGenerator(describeTables("rqg_test_db")).createQuery().sql)
   }
 
-  def describeTables(dbName: String): Array[RQGTable] = {
+  def describeTables(dbName: String): Array[Table] = {
     sparkConnection.runQuery(s"use $dbName")
     val tableNames = sparkConnection.runQuery("show tables") match {
       case Right(result) => result.rows.map(row => row.getString(1))
@@ -31,9 +30,9 @@ object QueryGenerator {
           val columns = result.rows.map { row =>
             val columnName = row.getString(0)
             val columnType = parseDataType(row.getString(1))
-            RQGColumn(columnName, columnType)
-          }
-          RQGTable(dbName, tableName, columns)
+            Column(tableName, columnName, columnType)
+          }.toArray
+          Table(tableName, columns)
         case Left(err) => throw new Exception(s"Error show tables", err)
       }
     }.toArray

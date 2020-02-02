@@ -1,4 +1,4 @@
-package com.baidu.spark.rqg.new_ast
+package com.baidu.spark.rqg
 
 import scala.util.Random
 

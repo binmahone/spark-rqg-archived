@@ -1,99 +1,42 @@
 package com.baidu.spark.rqg.ast
 
-// query
-//     : selectClause fromClause whereClause? aggregationClause? queryOrganization
-//     ;
-
-// fromClause
-//     : FROM relation
-//     ;
-
-// whereClause
-//     : WHERE booleanExpression
-
-// selectClause
-//     : SELECT setQuantifier? columnIdentifierSeq
-//     ;
-
-// queryOrganization
-//     : LIMIT constant
-//     ;
-
-// relation
-//     : tableIdentifier (AS alias)? joinRelation*
-//     ;
-
-// joinRelation
-//     : joinType JOIN right=relationPrimary joinCriteria?
-
-// joinType
-//     : INNER?
-//     | CROSS
-//     | LEFT OUTER?
-//     | LEFT? SEMI
-//     | RIGHT OUTER?
-//     | FULL OUTER?
-//     | LEFT? ANTI
-//     ;
-
-// joinCriteria
-//     : ON booleanExpression
-
-// booleanExpression
-//     : left=columnIdentifier '==' right=columnIdentifier
-//     | left=columnIdentifier '==' right=constant
-//     ;
-class Query(
+case class Query(
     querySession: QuerySession,
-    parent: Option[TreeNode] = None)
-  extends TreeNode(querySession, parent) {
+    parent: Option[TreeNode],
+    selectClause: SelectClause,
+    fromClause: FromClause) extends TreeNode {
 
-  val fromClause: FromClause = generateFromClause
+  override def sql: String = s"${selectClause.sql} ${fromClause.sql}"
+}
 
-  private val querySessionWithRelations =
-    querySession.copy(primaryRelations = fromClause.relation.primaryRelations)
+object Query {
 
-  val whereClause: Option[WhereClause] = generateWhereClauseOption
+  def apply(
+      querySession: QuerySession,
+      parent: Option[TreeNode] = None): Query = {
 
-  val aggregationClause: Option[AggregationClause] = generateAggregationClauseOption
+    val query = Query(querySession, parent, null, null)
 
-  val selectClause: SelectClause = generateSelectClause
+    val fromClause = generateFromClause(querySession, Some(query))
 
-  val queryOrganization: QueryOrganization = generateQueryOrganization
+    val selectClause = generateSelectClause(querySession, Some(query), fromClause)
 
-  def generateFromClause: FromClause = {
-    new FromClause(querySession, Some(this))
+    query.copy(selectClause = selectClause, fromClause = fromClause)
   }
 
-  def generateWhereClauseOption: Option[WhereClause] = {
-    // if (random.nextBoolean()) {
-    if (true) { // always be true for debugging
-      Some(new WhereClause(querySessionWithRelations, Some(this)))
-    } else {
-      None
-    }
+  private def generateFromClause(
+      querySession: QuerySession,
+      parent: Option[TreeNode]): FromClause = {
+
+    FromClause(querySession.copy(), parent)
   }
 
-  def generateAggregationClauseOption: Option[AggregationClause] = {
-    if (random.nextBoolean()) {
-      Some(new AggregationClause(querySessionWithRelations, Some(this)))
-    } else {
-      None
-    }
-  }
+  private def generateSelectClause(
+      querySession: QuerySession,
+      parent: Option[TreeNode],
+      fromClause: FromClause): SelectClause = {
 
-  def generateSelectClause: SelectClause = {
-    new SelectClause(querySessionWithRelations, Some(this))
-  }
-
-  def generateQueryOrganization: QueryOrganization = {
-    new QueryOrganization(querySessionWithRelations, Some(this))
-  }
-
-  def toSql: String = {
-    s"${selectClause.toSql} ${fromClause.toSql}" +
-      s"${whereClause.map(" " + _.toSql).getOrElse("")}" +
-      s"${aggregationClause.map(" " + _.toSql).getOrElse("")}" +
-      s" ${queryOrganization.toSql}"
+    val qs = querySession.copy(availableRelations = fromClause.relations)
+    SelectClause(qs, parent)
   }
 }

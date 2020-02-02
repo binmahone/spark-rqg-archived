@@ -1,14 +1,15 @@
 package com.baidu.spark.rqg
 
+import com.baidu.spark.rqg.ast.{Column, Table}
 import org.scalatest.FunSuite
 
 class QueryGeneratorSuite extends FunSuite {
 
   test("basic test") {
-    val columnInt = RQGColumn("column_int", IntType)
-    val columnString = RQGColumn("column_string", StringType(0, 20))
-    val columnDecimal = RQGColumn("column_decimal", DecimalType(10, 5))
-    val table = RQGTable("rqg_db", "rqg_table", Seq(columnInt, columnString, columnDecimal))
-    println(new QueryGenerator(Array(table)).createQuery().toSql)
+    val columnInt = Column("rqg_table", "column_int", IntType)
+    val columnString = Column("rqg_table", "column_string", StringType(0, 20))
+    val columnDecimal = Column("rqg_table", "column_decimal", DecimalType(10, 5))
+    val table = Table("rqg_table", Array(columnInt, columnString, columnDecimal))
+    println(new QueryGenerator(Array(table)).createQuery().sql)
   }
 }
