@@ -1,5 +1,77 @@
 package com.baidu.spark.rqg.ast
 
+// query
+//     : selectClause fromClause whereClause? aggregationClause? queryOrganization
+//     ;
+
+// selectClause
+//     : SELECT setQuantifier? namedExpressionSeq
+//     ;
+
+// setQuantifier
+//     : DISTINCT
+//     ;
+
+// namedExpressionSeq
+//     : namedExpression (',' namedExpression)*
+//     ;
+
+// fromClause
+//     : FROM relation
+//     ;
+
+// relation
+//     : relationPrimary joinRelation*
+//     ;
+
+// relationPrimary
+//     : tableIdentifier (AS tableAlias)?
+//     ;
+
+// joinRelation
+//     : (joinType) JOIN right=relationPrimary joinCriteria
+//     ;
+
+// joinType
+//     : INNER? | CROSS | LEFT OUTER? | LEFT? SEMI | RIGHT OUTER? | FULL OUTER? | LEFT? ANTI
+//     ;
+
+// joinCriteria
+//     : ON booleanExpression
+//     ;
+
+// whereClause
+//     : WHERE booleanExpression
+//     ;
+
+// aggregationClause
+//     : GROUP BY groupingExpressions+=expression (',' groupingExpressions+=expression)*
+//     ;
+
+// queryOrganization
+//     : LIMIT constant
+//     ;
+
+// namedExpression
+//     : expression (AS alias)?
+
+// expression
+//     : booleanExpression
+//     ;
+
+// booleanExpression
+//     : valueExpression
+//     ;
+
+// valueExpression
+//     : primaryExpression
+//     | left=valueExpression comparisonOperator right=valueExpression  #comparison
+//     ;
+
+// comparisonOperator
+//     : EQ | NEQ | NEQJ | LT | LTE | GT | GTE | NSEQ
+//     ;
+
 case class Query(
     querySession: QuerySession,
     parent: Option[TreeNode],
