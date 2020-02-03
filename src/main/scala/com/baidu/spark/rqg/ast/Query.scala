@@ -71,8 +71,13 @@ package com.baidu.spark.rqg.ast
 
 // valueExpression
 //     : primaryExpression
-//     | left=valueExpression comparisonOperator right=valueExpression    #comparison
+//     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression       #arithmeticBinary
+//     | left=valueExpression comparisonOperator right=valueExpression            #comparison
 //     ;
+
+// primaryExpression
+//     : constant
+//     | identifier                                                       #columnReference
 
 // comparisonOperator
 //     : EQ | NEQ | NEQJ | LT | LTE | GT | GTE | NSEQ

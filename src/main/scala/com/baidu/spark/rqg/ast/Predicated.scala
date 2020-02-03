@@ -1,12 +1,18 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils}
 
 case class Predicated(
     querySession: QuerySession,
     parent: Option[TreeNode],
     valueExpression: ValueExpression,
     predicateOption: Option[Predicate]) extends BooleanExpression {
+
+  override def dataType: DataType[_] = if (predicateOption.isDefined) {
+    BooleanType
+  } else {
+    valueExpression.dataType
+  }
 
   override def sql: String = s"${valueExpression.sql} ${predicateOption.map(_.sql).getOrElse("")}"
 

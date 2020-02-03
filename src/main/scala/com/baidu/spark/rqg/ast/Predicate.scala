@@ -9,10 +9,11 @@ trait Predicate extends TreeNode {
 object Predicate {
   def apply(querySession: QuerySession, parent: Option[TreeNode]): Predicate = {
 
-    val choices = Array("NullPredicate")
+    val choices = Array("NullPredicate", "BetweenPredicate")
 
     RandomUtils.choice(choices) match {
       case "NullPredicate" => NullPredicate(querySession, parent)
+      case "BetweenPredicate" => BetweenPredicate(querySession, parent)
     }
   }
 }
