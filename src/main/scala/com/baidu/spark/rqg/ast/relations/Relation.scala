@@ -1,8 +1,9 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.relations
 
 import scala.collection.mutable.ArrayBuffer
 
 import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast._
 
 case class Relation(
     querySession: QuerySession,

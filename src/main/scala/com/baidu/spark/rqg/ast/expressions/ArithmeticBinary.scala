@@ -1,5 +1,6 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
+import com.baidu.spark.rqg.ast._
 import com.baidu.spark.rqg.{DataType, RandomUtils}
 
 case class ArithmeticBinary(

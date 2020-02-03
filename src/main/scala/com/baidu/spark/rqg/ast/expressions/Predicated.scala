@@ -1,6 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
-import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils}
+import com.baidu.spark.rqg.ast._
+import com.baidu.spark.rqg.{BooleanType, DataType}
 
 case class Predicated(
     querySession: QuerySession,

@@ -1,5 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
+import com.baidu.spark.rqg.ast._
+import com.baidu.spark.rqg.ast.relations.RelationPrimary
 import com.baidu.spark.rqg.{DataType, RandomUtils, Utils}
 
 import org.apache.spark.internal.Logging

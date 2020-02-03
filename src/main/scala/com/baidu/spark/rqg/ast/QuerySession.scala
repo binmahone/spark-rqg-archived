@@ -1,6 +1,7 @@
 package com.baidu.spark.rqg.ast
 
 import com.baidu.spark.rqg.DataType
+import com.baidu.spark.rqg.ast.relations.RelationPrimary
 
 case class QuerySession(
     availableTables: Array[Table] = Array.empty,

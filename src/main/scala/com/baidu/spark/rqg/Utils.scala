@@ -1,6 +1,7 @@
 package com.baidu.spark.rqg
 
-import com.baidu.spark.rqg.ast.{Column, RelationPrimary}
+import com.baidu.spark.rqg.ast.Column
+import com.baidu.spark.rqg.ast.relations.RelationPrimary
 
 object Utils {
 

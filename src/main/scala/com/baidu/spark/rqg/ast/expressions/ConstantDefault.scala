@@ -1,4 +1,6 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
+
+import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 import com.baidu.spark.rqg.{DataType, RandomUtils}
 
 import org.apache.spark.internal.Logging

@@ -1,4 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
+
+import com.baidu.spark.rqg.ast._
+import com.baidu.spark.rqg.ast.relations.JoinCriteria
 import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils}
 
 import org.apache.spark.internal.Logging

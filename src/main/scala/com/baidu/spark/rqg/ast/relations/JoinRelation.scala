@@ -1,6 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.relations
 
 import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast._
 
 case class JoinRelation(
     querySession: QuerySession,

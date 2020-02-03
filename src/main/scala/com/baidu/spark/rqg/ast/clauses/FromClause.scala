@@ -1,4 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.clauses
+
+import com.baidu.spark.rqg.ast._
+import com.baidu.spark.rqg.ast.relations.{Relation, RelationPrimary}
 
 case class FromClause(
     querySession: QuerySession,

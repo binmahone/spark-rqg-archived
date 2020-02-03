@@ -1,6 +1,9 @@
 package com.baidu.spark.rqg.ast
 
 import com.baidu.spark.rqg._
+import com.baidu.spark.rqg.ast.clauses._
+import com.baidu.spark.rqg.ast.expressions._
+import com.baidu.spark.rqg.ast.relations._
 import org.scalatest.FunSuite
 
 class QuerySuite extends FunSuite {

@@ -1,5 +1,7 @@
 package com.baidu.spark.rqg.ast
 
+import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause}
+
 // query
 //     : selectClause fromClause whereClause? aggregationClause? queryOrganization
 //     ;

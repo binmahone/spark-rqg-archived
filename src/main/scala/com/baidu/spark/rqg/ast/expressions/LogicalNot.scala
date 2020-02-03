@@ -1,5 +1,6 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
+import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 import com.baidu.spark.rqg.{BooleanType, DataType}
 
 case class LogicalNot(

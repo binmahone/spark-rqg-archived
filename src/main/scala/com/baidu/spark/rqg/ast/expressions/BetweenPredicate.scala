@@ -1,6 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast._
 
 case class BetweenPredicate(
     querySession: QuerySession,

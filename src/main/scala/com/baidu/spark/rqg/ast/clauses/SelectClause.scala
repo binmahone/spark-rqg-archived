@@ -1,6 +1,8 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.clauses
 
 import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast.expressions.NamedExpression
+import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 
 import org.apache.spark.internal.Logging
 

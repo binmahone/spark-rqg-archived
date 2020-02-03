@@ -1,5 +1,6 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.relations
 
+import com.baidu.spark.rqg.ast._
 import com.baidu.spark.rqg.{DataType, RandomUtils}
 
 trait RelationPrimary extends TreeNode {

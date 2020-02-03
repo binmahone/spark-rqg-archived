@@ -1,6 +1,8 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.relations
 
 import com.baidu.spark.rqg.BooleanType
+import com.baidu.spark.rqg.ast.expressions.BooleanExpression
+import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 
 case class JoinCriteria(
     querySession: QuerySession,

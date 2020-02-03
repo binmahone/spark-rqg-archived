@@ -1,6 +1,7 @@
-package com.baidu.spark.rqg.ast
+package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.Utils
+import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 
 case class NamedExpression(
     querySession: QuerySession,
