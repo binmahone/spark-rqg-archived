@@ -104,9 +104,15 @@ class QuerySuite extends FunSuite {
     }
   }
 
+  test("AggregationClause") {
+    for (_ <- 0 until 1000) {
+      AggregationClause(querySessionWithRelations, None).sql
+    }
+  }
+
   test("Query") {
     for (_ <- 0 until 1000) {
-      Query(querySession, None).sql
+      println(Query(querySession, None).sql)
     }
   }
 }

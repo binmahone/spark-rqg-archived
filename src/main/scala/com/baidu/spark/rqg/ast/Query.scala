@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast
 
 import com.baidu.spark.rqg.RandomUtils
-import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause, WhereClause}
+import com.baidu.spark.rqg.ast.clauses.{AggregationClause, FromClause, SelectClause, WhereClause}
 
 // query
 //     : selectClause fromClause whereClause? aggregationClause? queryOrganization
@@ -91,12 +91,14 @@ case class Query(
     parent: Option[TreeNode],
     selectClause: SelectClause,
     whereClauseOption: Option[WhereClause],
+    aggregationClauseOption: Option[AggregationClause],
     fromClause: FromClause) extends TreeNode {
 
   override def sql: String =
     s"${selectClause.sql}" +
     s" ${fromClause.sql}" +
-    s" ${whereClauseOption.map(_.sql).getOrElse("")}"
+    s" ${whereClauseOption.map(_.sql).getOrElse("")}" +
+    s" ${aggregationClauseOption.map(_.sql).getOrElse("")}"
 }
 
 object Query {
@@ -105,7 +107,7 @@ object Query {
       querySession: QuerySession,
       parent: Option[TreeNode] = None): Query = {
 
-    val query = Query(querySession, parent, null, null, null)
+    val query = Query(querySession, parent, null, null, null, null)
 
     val fromClause = generateFromClause(querySession, Some(query))
 
@@ -113,8 +115,13 @@ object Query {
 
     val whereClauseOption = generateWhereClause(querySession, Some(query), fromClause)
 
+    val aggregationClauseOption = generateAggregationClause(querySession, Some(query), fromClause)
+
     query.copy(
-      selectClause = selectClause, fromClause = fromClause, whereClauseOption = whereClauseOption)
+      selectClause = selectClause,
+      fromClause = fromClause,
+      whereClauseOption = whereClauseOption,
+      aggregationClauseOption = aggregationClauseOption)
   }
 
   private def generateFromClause(
@@ -141,6 +148,19 @@ object Query {
     if (RandomUtils.nextBoolean()) {
       val qs = querySession.copy(availableRelations = fromClause.relations)
       Some(WhereClause(qs, parent))
+    } else {
+      None
+    }
+  }
+
+  private def generateAggregationClause(
+      querySession: QuerySession,
+      parent: Option[TreeNode],
+      fromClause: FromClause): Option[AggregationClause] = {
+
+    if (RandomUtils.nextBoolean()) {
+      val qs = querySession.copy(availableRelations = fromClause.relations)
+      Some(AggregationClause(qs, parent))
     } else {
       None
     }

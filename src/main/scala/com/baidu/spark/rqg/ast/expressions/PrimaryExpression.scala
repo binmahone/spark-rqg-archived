@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.ast._
-import com.baidu.spark.rqg.ast.clauses.SelectClause
+import com.baidu.spark.rqg.ast.clauses.{AggregationClause, SelectClause}
 import com.baidu.spark.rqg.ast.relations.JoinCriteria
 import com.baidu.spark.rqg.{DataType, RandomUtils, Utils}
 
@@ -27,6 +27,9 @@ object PrimaryExpression extends Logging {
         choices.filter(_ == "ColumnReference")
       case Some(Comparison(_, Some(Predicated(_, Some(_: JoinCriteria), _, _)), _, _, _)) =>
         logInfo("Generating PrimaryExpression for Comparision of JoinCriteria")
+        choices.filter(_ == "ColumnReference")
+      case Some(Predicated(_, Some(_: AggregationClause), _, _)) =>
+        logInfo("Generating PrimaryExpression for AggregationClause")
         choices.filter(_ == "ColumnReference")
       case _ =>
         choices

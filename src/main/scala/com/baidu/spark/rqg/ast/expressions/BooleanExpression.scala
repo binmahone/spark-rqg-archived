@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.ast._
-import com.baidu.spark.rqg.ast.clauses.SelectClause
+import com.baidu.spark.rqg.ast.clauses.{AggregationClause, SelectClause}
 import com.baidu.spark.rqg.ast.relations.JoinCriteria
 import com.baidu.spark.rqg.{DataType, RandomUtils}
 
@@ -31,6 +31,8 @@ object BooleanExpression extends Logging {
       case Some(NamedExpression(_, Some(_: SelectClause), _, _)) =>
         // Rule #2: SelectClause should filter some choices
         logInfo("Generating Predicated for SelectClause")
+        choices.filter(_ == "Predicated")
+      case Some(_: AggregationClause) =>
         choices.filter(_ == "Predicated")
       case _ =>
         choices

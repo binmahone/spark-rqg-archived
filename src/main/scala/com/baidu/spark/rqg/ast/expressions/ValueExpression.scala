@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.ast._
-import com.baidu.spark.rqg.ast.clauses.SelectClause
+import com.baidu.spark.rqg.ast.clauses.{AggregationClause, SelectClause}
 import com.baidu.spark.rqg.ast.relations.JoinCriteria
 import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils}
 
@@ -33,6 +33,9 @@ object ValueExpression extends Logging {
         // Rule #2: Only Generate Comparison for JoinCriteria
         logInfo("Generating ValueExpression for JoinCriteria")
         choices.filter(_ == "Comparison")
+      case Some(Predicated(_, Some(_: AggregationClause), _, _)) =>
+        logInfo("Generating ValueExpression for AggregationClause")
+        choices.filter(_ == "PrimaryExpression")
       case Some(Comparison(_, Some(Predicated(_, Some(_: JoinCriteria), _, _)), _, _, _)) =>
         // Rule #3: Only Generate PrimaryExpression for Comparison of JoinCriteria
         logInfo("Generating ValueExpression for Comparison of JoinCriteria")
