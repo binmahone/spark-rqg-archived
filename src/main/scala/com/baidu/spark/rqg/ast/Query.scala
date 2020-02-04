@@ -1,7 +1,7 @@
 package com.baidu.spark.rqg.ast
 
 import com.baidu.spark.rqg.RandomUtils
-import com.baidu.spark.rqg.ast.clauses.{AggregationClause, FromClause, SelectClause, WhereClause}
+import com.baidu.spark.rqg.ast.clauses._
 
 // query
 //     : selectClause fromClause whereClause? aggregationClause? queryOrganization
@@ -52,7 +52,9 @@ import com.baidu.spark.rqg.ast.clauses.{AggregationClause, FromClause, SelectCla
 //     ;
 
 // queryOrganization
-//     : LIMIT constant
+//     : (ORDER BY order+=sortItem (',' order+=sortItem)*)?
+//       (SORT BY order+=sortItem (',' order+=sortItem)*)?
+//       (LIMIT constant)?
 //     ;
 
 // namedExpression
@@ -92,13 +94,15 @@ case class Query(
     selectClause: SelectClause,
     whereClauseOption: Option[WhereClause],
     aggregationClauseOption: Option[AggregationClause],
-    fromClause: FromClause) extends TreeNode {
+    fromClause: FromClause,
+    queryOrganization: QueryOrganization) extends TreeNode {
 
   override def sql: String =
     s"${selectClause.sql}" +
     s" ${fromClause.sql}" +
     s" ${whereClauseOption.map(_.sql).getOrElse("")}" +
-    s" ${aggregationClauseOption.map(_.sql).getOrElse("")}"
+    s" ${aggregationClauseOption.map(_.sql).getOrElse("")}" +
+    s" ${queryOrganization.sql}"
 }
 
 object Query {
@@ -107,7 +111,7 @@ object Query {
       querySession: QuerySession,
       parent: Option[TreeNode] = None): Query = {
 
-    val query = Query(querySession, parent, null, null, null, null)
+    val query = Query(querySession, parent, null, null, null, null, null)
 
     val fromClause = generateFromClause(querySession, Some(query))
 
@@ -117,11 +121,14 @@ object Query {
 
     val aggregationClauseOption = generateAggregationClause(querySession, Some(query), fromClause)
 
+    val queryOrganization = generateQueryOrganization(querySession, Some(query))
+
     query.copy(
       selectClause = selectClause,
       fromClause = fromClause,
       whereClauseOption = whereClauseOption,
-      aggregationClauseOption = aggregationClauseOption)
+      aggregationClauseOption = aggregationClauseOption,
+      queryOrganization = queryOrganization)
   }
 
   private def generateFromClause(
@@ -164,5 +171,10 @@ object Query {
     } else {
       None
     }
+  }
+
+  private def generateQueryOrganization(
+      querySession: QuerySession, parent: Option[Query]): QueryOrganization = {
+    QueryOrganization(querySession, parent)
   }
 }
