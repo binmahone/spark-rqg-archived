@@ -36,7 +36,7 @@ object BooleanExpression extends Logging {
         choices
     }
 
-    // Rule #3: Only generate PrimaryExpression when reach max nested count
+    // Rule #3: Only generate Predicated when reach max nested count
     val filteredChoices2 = if (querySession.nestedExpressionCount > maxNestedExpressionCount) {
       logInfo(s"Generating BooleanExpression reach max nested count: $maxNestedExpressionCount")
       filteredChoices.filter(_ == "Predicated")

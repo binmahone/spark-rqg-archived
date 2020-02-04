@@ -41,7 +41,7 @@ object Relation {
     val availableRelations = new ArrayBuffer[RelationPrimary]()
     availableRelations.append(relationPrimary)
 
-    (0 until RandomUtils.choice(0, 10)).map { _ =>
+    (0 until RandomUtils.choice(0, 1)).map { _ =>
       val joinRelation = JoinRelation(
         querySession.copy(availableRelations = availableRelations.toArray), parent)
 

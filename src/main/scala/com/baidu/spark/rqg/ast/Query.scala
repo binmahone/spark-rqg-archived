@@ -1,6 +1,7 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause}
+import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause, WhereClause}
 
 // query
 //     : selectClause fromClause whereClause? aggregationClause? queryOrganization
@@ -89,9 +90,13 @@ case class Query(
     querySession: QuerySession,
     parent: Option[TreeNode],
     selectClause: SelectClause,
+    whereClauseOption: Option[WhereClause],
     fromClause: FromClause) extends TreeNode {
 
-  override def sql: String = s"${selectClause.sql} ${fromClause.sql}"
+  override def sql: String =
+    s"${selectClause.sql}" +
+    s" ${fromClause.sql}" +
+    s" ${whereClauseOption.map(_.sql).getOrElse("")}"
 }
 
 object Query {
@@ -100,13 +105,16 @@ object Query {
       querySession: QuerySession,
       parent: Option[TreeNode] = None): Query = {
 
-    val query = Query(querySession, parent, null, null)
+    val query = Query(querySession, parent, null, null, null)
 
     val fromClause = generateFromClause(querySession, Some(query))
 
     val selectClause = generateSelectClause(querySession, Some(query), fromClause)
 
-    query.copy(selectClause = selectClause, fromClause = fromClause)
+    val whereClauseOption = generateWhereClause(querySession, Some(query), fromClause)
+
+    query.copy(
+      selectClause = selectClause, fromClause = fromClause, whereClauseOption = whereClauseOption)
   }
 
   private def generateFromClause(
@@ -123,5 +131,18 @@ object Query {
 
     val qs = querySession.copy(availableRelations = fromClause.relations)
     SelectClause(qs, parent)
+  }
+
+  private def generateWhereClause(
+      querySession: QuerySession,
+      parent: Option[TreeNode],
+      fromClause: FromClause): Option[WhereClause] = {
+
+    if (RandomUtils.nextBoolean()) {
+      val qs = querySession.copy(availableRelations = fromClause.relations)
+      Some(WhereClause(qs, parent))
+    } else {
+      None
+    }
   }
 }

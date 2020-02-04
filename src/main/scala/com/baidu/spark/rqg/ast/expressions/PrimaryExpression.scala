@@ -3,7 +3,7 @@ package com.baidu.spark.rqg.ast.expressions
 import com.baidu.spark.rqg.ast._
 import com.baidu.spark.rqg.ast.clauses.SelectClause
 import com.baidu.spark.rqg.ast.relations.JoinCriteria
-import com.baidu.spark.rqg.{DataType, RandomUtils}
+import com.baidu.spark.rqg.{DataType, RandomUtils, Utils}
 
 import org.apache.spark.internal.Logging
 
@@ -32,7 +32,15 @@ object PrimaryExpression extends Logging {
         choices
     }
 
-    RandomUtils.choice(filteredChoices) match {
+    // Rule #3: if allowed relations has no allowed data type, don't generate ColumnReference
+    val filteredChoices2 = if (Utils.allowedRelations(
+      querySession.availableRelations, querySession.allowedDataTypes).isEmpty) {
+      filteredChoices.filterNot(_ == "ColumnReference")
+    } else {
+      filteredChoices
+    }
+
+    RandomUtils.choice(filteredChoices2) match {
       case "ColumnReference" => ColumnReference(querySession, parent)
       case "ConstantDefault" => ConstantDefault(querySession, parent)
     }

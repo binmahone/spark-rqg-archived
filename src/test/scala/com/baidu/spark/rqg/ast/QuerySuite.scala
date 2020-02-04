@@ -8,7 +8,7 @@ import org.scalatest.FunSuite
 
 class QuerySuite extends FunSuite {
 
-  private val querySession = QuerySession(
+  private def querySession = QuerySession(
     availableTables = Array(
       Table("table_1", Array(
         Column("table_1", "column_1",IntType), Column("table_1", "column_2",BooleanType),
@@ -33,7 +33,7 @@ class QuerySuite extends FunSuite {
         Column("table_5", "column_3",StringType()), Column("table_5", "column_4",DecimalType(12,4)))))
   )
 
-  private val querySessionWithRelations = querySession.copy(
+  private def querySessionWithRelations = querySession.copy(
     availableRelations = Array(
       RelationPrimary(querySession, None),
       RelationPrimary(querySession, None)
@@ -94,7 +94,13 @@ class QuerySuite extends FunSuite {
 
   test("BooleanExpression") {
     for (_ <- 0 until 1000) {
-     BooleanExpression(querySessionWithRelations, None).sql
+      BooleanExpression(querySessionWithRelations, None).sql
+    }
+  }
+
+  test("WhereClause") {
+    for (_ <- 0 until 1000) {
+      WhereClause(querySessionWithRelations, None).sql
     }
   }
 
