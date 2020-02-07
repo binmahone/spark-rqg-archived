@@ -13,9 +13,27 @@ object Utils {
     relations.filter(_.dataTypes.exists(dt => allowedDataTypes.contains(dt)))
   }
 
+  def allowedRelations(
+      relations: Array[com.baidu.spark.rqg.ast_new.relations.RelationPrimary],
+      allowedDataTypes: Array[DataType[_]]): Array[com.baidu.spark.rqg.ast_new.relations.RelationPrimary] = {
+    relations.filter(_.dataTypes.exists(dt => allowedDataTypes.contains(dt)))
+  }
+
+  def allowedRelations(
+      relations: Array[com.baidu.spark.rqg.ast_new.relations.RelationPrimary],
+      allowedDataType: DataType[_]): Array[com.baidu.spark.rqg.ast_new.relations.RelationPrimary] = {
+    relations.filter(_.dataTypes.contains(allowedDataType))
+  }
+
   def allowedColumns(
       columns: Array[Column],
       allowedDataTypes: Array[DataType[_]]): Array[Column] = {
+    columns.filter(column => allowedDataTypes.contains(column.dataType))
+  }
+
+  def allowedColumns(
+    columns: Array[com.baidu.spark.rqg.ast_new.Column],
+    allowedDataTypes: Array[DataType[_]]): Array[com.baidu.spark.rqg.ast_new.Column] = {
     columns.filter(column => allowedDataTypes.contains(column.dataType))
   }
 
