@@ -1,6 +1,7 @@
 package com.baidu.spark.rqg.ast
 
 import com.baidu.spark.rqg.DataType
+import com.baidu.spark.rqg.ast.relations.RelationPrimary
 
 /**
  * A TreeNode represents a part of a Query.
@@ -19,6 +20,7 @@ trait TreeNode {
  */
 case class QuerySession(
     var availableTables: Array[Table] = Array.empty,
+    var availableRelations: Array[RelationPrimary] = Array.empty,
     var nextAliasId: Int = 0) {
   def nextAlias(prefix: String): String = {
     val id = nextAliasId

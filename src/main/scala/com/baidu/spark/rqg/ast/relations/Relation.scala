@@ -12,6 +12,7 @@ class Relation(
     val parent: Option[TreeNode]) extends TreeNode {
 
   val relationPrimary: RelationPrimary = generateRelationPrimary
+  querySession.availableRelations = querySession.availableRelations :+ relationPrimary
 
   def relations: Seq[RelationPrimary] = Seq(relationPrimary)
 

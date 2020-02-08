@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.ast.clauses.FromClause
+import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause}
 
 /**
  * This class represents a complete query, each member variable represents a query part. Such as:
@@ -12,11 +12,17 @@ class Query(
 
   val fromClause: FromClause = generateFromClause
 
+  val selectClause: SelectClause = generateSelectClause
+
   private def generateFromClause: FromClause = {
     FromClause(querySession, Some(this))
   }
 
-  override def sql: String = s"SELECT * ${fromClause.sql}"
+  private def generateSelectClause: SelectClause = {
+    SelectClause(querySession, Some(this))
+  }
+
+  override def sql: String = s"${selectClause.sql} ${fromClause.sql}"
 }
 
 /**
