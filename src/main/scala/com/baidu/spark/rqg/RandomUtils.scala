@@ -2,8 +2,6 @@ package com.baidu.spark.rqg
 
 import scala.util.Random
 
-import com.baidu.spark.rqg.{DataType, ValueGenerator}
-
 import org.apache.spark.internal.Logging
 
 object RandomUtils extends Logging {
