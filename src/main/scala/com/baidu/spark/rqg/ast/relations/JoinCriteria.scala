@@ -1,5 +1,6 @@
 package com.baidu.spark.rqg.ast.relations
 
+import com.baidu.spark.rqg.BooleanType
 import com.baidu.spark.rqg.ast.expressions.BooleanExpression
 import com.baidu.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
 
@@ -27,7 +28,7 @@ class JoinCriteria(
   val booleanExpression: BooleanExpression = generateBooleanExpression
 
   private def generateBooleanExpression: BooleanExpression = {
-    BooleanExpression(querySession, Some(this))
+    BooleanExpression(querySession, Some(this), BooleanType)
   }
 
   override def sql: String = s"ON ${booleanExpression.sql}"

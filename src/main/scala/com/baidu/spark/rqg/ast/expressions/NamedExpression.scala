@@ -1,5 +1,6 @@
 package com.baidu.spark.rqg.ast.expressions
 
+import com.baidu.spark.rqg.RandomUtils
 import com.baidu.spark.rqg.ast.{QuerySession, TreeNode}
 
 /**
@@ -16,7 +17,8 @@ class NamedExpression(
   val alias = Some(querySession.nextAlias(expression.name))
 
   private def generateExpression: BooleanExpression = {
-    BooleanExpression(querySession.copy(), parent)
+    val dataType = RandomUtils.choice(querySession.allowedDataTypes)
+    BooleanExpression(querySession.copy(), parent, dataType)
   }
 
   def name: String = alias.getOrElse(expression.name)
