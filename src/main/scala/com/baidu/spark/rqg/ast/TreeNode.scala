@@ -21,6 +21,8 @@ trait TreeNode {
 case class QuerySession(
     var availableTables: Array[Table] = Array.empty,
     var availableRelations: Array[RelationPrimary] = Array.empty,
+    var joiningRelation: Option[RelationPrimary] = None,
+    var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes,
     var nextAliasId: Int = 0) {
   def nextAlias(prefix: String): String = {
     val id = nextAliasId
