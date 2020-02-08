@@ -17,7 +17,15 @@ trait TreeNode {
  * 2. aliasId to generate unique alias
  * 3. allowed data types when generating an expression
  */
-case class QuerySession(var availableTables: Array[Table] = Array.empty)
+case class QuerySession(
+    var availableTables: Array[Table] = Array.empty,
+    var nextAliasId: Int = 0) {
+  def nextAlias(prefix: String): String = {
+    val id = nextAliasId
+    nextAliasId += 1
+    s"${prefix}_alias_$id"
+  }
+}
 
 /**
  * Represents a table from db

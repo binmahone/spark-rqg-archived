@@ -1,5 +1,7 @@
 package com.baidu.spark.rqg.ast
 
+import com.baidu.spark.rqg.ast.clauses.FromClause
+
 /**
  * This class represents a complete query, each member variable represents a query part. Such as:
  * SelectClause, FromClause, WhereClause, etc.
@@ -7,7 +9,14 @@ package com.baidu.spark.rqg.ast
 class Query(
     val querySession: QuerySession,
     val parent: Option[TreeNode]) extends TreeNode {
-  override def sql: String = "SELECT * FROM table_1"
+
+  val fromClause: FromClause = generateFromClause
+
+  private def generateFromClause: FromClause = {
+    FromClause(querySession, Some(this))
+  }
+
+  override def sql: String = s"SELECT * ${fromClause.sql}"
 }
 
 /**

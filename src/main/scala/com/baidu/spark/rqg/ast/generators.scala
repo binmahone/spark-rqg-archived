@@ -17,3 +17,11 @@ trait Generator[T]
 trait TreeNodeGenerator[T] extends Generator[T] {
   def apply(querySession: QuerySession, parent: Option[TreeNode]): T
 }
+
+/**
+ * All kinds of RelationPrimary generator extends this, such as:
+ * TableReference, AliasedQuery, FunctionTable. For now, we only support TableReference
+ */
+trait RelationPrimaryGenerator[T] extends Generator[T] {
+  def apply(querySession: QuerySession, parent: Option[TreeNode]): T
+}
