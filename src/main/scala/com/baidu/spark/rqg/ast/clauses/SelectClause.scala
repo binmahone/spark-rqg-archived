@@ -20,7 +20,7 @@ class SelectClause(
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
     (0 until RandomUtils.choice(1, 5))
-      .map(_ => NamedExpression(querySession.copy(), Some(this)))
+      .map(_ => NamedExpression(querySession, Some(this)))
   }
 
   override def sql: String = s"SELECT " +

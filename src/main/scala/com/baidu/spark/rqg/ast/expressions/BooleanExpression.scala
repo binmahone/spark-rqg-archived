@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast.expressions
 
-import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils}
+import com.baidu.spark.rqg.{BooleanType, DataType, RandomUtils, Utils}
 import com.baidu.spark.rqg.ast._
 import com.baidu.spark.rqg.ast.operators._
 
@@ -30,14 +30,24 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean = false): BooleanExpression = {
-    RandomUtils.choice(choices).apply(querySession, parent, requiredDataType, isLast)
+
+    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+      choices.filter(_.canGeneratePrimitive)
+    } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
+      choices.filter(_.canGenerateNested)
+    } else {
+      choices
+    }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
+    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   private def choices = Array(LogicalNot, Predicated, LogicalBinary)
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    choices.flatMap(_.possibleDataTypes(querySession)).distinct
+  }
 
   override def canGenerateRelational: Boolean = true
 
@@ -51,6 +61,8 @@ class LogicalNot(
     val querySession: QuerySession,
     val parent: Option[TreeNode],
     isLast: Boolean) extends BooleanExpression {
+
+  querySession.allowedNestedExpressionCount -= 1
 
   val booleanExpression: BooleanExpression = generateBooleanExpression
 
@@ -83,7 +95,9 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
 
   override def canGenerateRelational: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = Array(BooleanType)
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    Array(BooleanType)
+  }
 
   override def canGenerateNested: Boolean = true
 }
@@ -97,10 +111,9 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
 class LogicalBinary(
     val querySession: QuerySession,
     val parent: Option[TreeNode],
-    requiredDataType: DataType[_],
     isLast: Boolean) extends BooleanExpression {
 
-  require(requiredDataType == BooleanType, "LogicalBinary can only return BooleanType")
+  querySession.allowedNestedExpressionCount -= 1
 
   val operator: Operator = RandomUtils.choice(operators)
   val left: BooleanExpression = generateLeft
@@ -128,16 +141,20 @@ class LogicalBinary(
  */
 object LogicalBinary extends ExpressionGenerator[LogicalBinary] {
   def apply(
-    querySession: QuerySession,
-    parent: Option[TreeNode],
-    requiredDataType: DataType[_],
-    isLast: Boolean): LogicalBinary = {
-    new LogicalBinary(querySession, parent, requiredDataType, isLast)
+      querySession: QuerySession,
+      parent: Option[TreeNode],
+      requiredDataType: DataType[_],
+      isLast: Boolean): LogicalBinary = {
+
+    require(requiredDataType == BooleanType, "LogicalBinary can only return BooleanType")
+    new LogicalBinary(querySession, parent, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = Array(BooleanType)
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    Array(BooleanType)
+  }
 
   override def canGenerateRelational: Boolean = false
 
@@ -156,15 +173,32 @@ class Predicated(
     requiredDataType: DataType[_],
     isLast: Boolean) extends BooleanExpression {
 
+  // We treat valueExpression IS BETWEEN a AND b as nested expression and valueExpression
+  // itself as "Maybe" primitive expression, i.e. it can generate Constant. Also, if required
+  // data type is not boolean, we don't use predicate.
+  private val usePredicate =
+    !querySession.needGeneratePrimitiveExpression &&
+      requiredDataType == BooleanType &&
+      RandomUtils.nextBoolean()
+
+  if (usePredicate) {
+    querySession.allowedNestedExpressionCount -= 1
+  }
+
   val valueExpression: ValueExpression = generateValueExpression
   val predicateOption: Option[Predicate] = generatePredicateOption
 
   private def generateValueExpression = {
-    ValueExpression(querySession, Some(this), requiredDataType, isLast)
+    val valueExpressionDataType = if (usePredicate) {
+      RandomUtils.choice(querySession.dataTypesInAvailableRelations)
+    } else {
+      requiredDataType
+    }
+    ValueExpression(querySession, Some(this), valueExpressionDataType, isLast)
   }
 
   private def generatePredicateOption = {
-    if (RandomUtils.nextBoolean()) {
+    if (usePredicate) {
       Some(Predicate(querySession, Some(this), requiredDataType))
     } else {
       None
@@ -195,7 +229,9 @@ object Predicated extends ExpressionGenerator[Predicated] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    (ValueExpression.possibleDataTypes(querySession) :+ BooleanType).distinct
+  }
 
   override def canGenerateRelational: Boolean = true
 

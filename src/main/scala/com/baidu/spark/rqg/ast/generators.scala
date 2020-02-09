@@ -55,7 +55,7 @@ trait ExpressionGenerator[T] extends Generator[T] {
   /**
    * possible data type a generator can return. For example: Comparison can only return BooleanType
    */
-  def possibleDataTypes: Array[DataType[_]]
+  def possibleDataTypes(querySession: QuerySession): Array[DataType[_]]
 
   /**
    * @param requiredDataType means the generated expression should return this data type

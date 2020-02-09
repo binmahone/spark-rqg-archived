@@ -23,11 +23,24 @@ case class QuerySession(
     var availableRelations: Array[RelationPrimary] = Array.empty,
     var joiningRelation: Option[RelationPrimary] = None,
     var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes,
+    var allowedNestedExpressionCount: Int = 5,
     var nextAliasId: Int = 0) {
   def nextAlias(prefix: String): String = {
     val id = nextAliasId
     nextAliasId += 1
     s"${prefix}_alias_$id"
+  }
+
+  def needGeneratePrimitiveExpression: Boolean = {
+    allowedNestedExpressionCount <= 0
+  }
+
+  def dataTypesInAvailableRelations: Array[DataType[_]] = {
+    allowedDataTypes.intersect(availableRelations.flatMap(_.columns).map(_.dataType)).distinct
+  }
+
+  def relationsBasedOnAllowedDataType: Array[RelationPrimary] = {
+    availableRelations.filter(_.dataTypes.exists(dt => allowedDataTypes.contains(dt)))
   }
 }
 

@@ -49,14 +49,21 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): PrimaryExpression = {
 
-    RandomUtils.choice(choices).apply(querySession, parent, requiredDataType, isLast)
+    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+      choices.filter(_.canGeneratePrimitive)
+    } else {
+      choices
+    }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
+    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = true
 
   override def canGenerateRelational: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    choices.flatMap(_.possibleDataTypes(querySession)).distinct
+  }
 
   def choices = Array(Constant, ColumnReference, Star, FunctionCall)
 
@@ -82,7 +89,7 @@ class Constant(
     case _ => value.toString
   }
 
-  override def name: String = value.toString
+  override def name: String = "constant"
 
   override def dataType: DataType[_] = requiredDataType
 }
@@ -101,7 +108,9 @@ object Constant extends ExpressionGenerator[Constant] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    querySession.allowedDataTypes
+  }
 
   override def canGenerateRelational: Boolean = false
 
@@ -133,7 +142,9 @@ object Star extends ExpressionGenerator[Star] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes: Array[DataType[_]] = Array.empty
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    Array.empty
+  }
 
   override def canGenerateRelational: Boolean = false
 
@@ -170,7 +181,9 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = Array.empty
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    Array.empty
+  }
 
   override def canGenerateRelational: Boolean = false
 
@@ -189,7 +202,9 @@ class ColumnReference(
   private val column = generateColumn
 
   private def generateRelation = {
-    RandomUtils.choice(querySession.availableRelations)
+    RandomUtils.choice(
+      querySession.availableRelations
+        .filter(_.columns.exists(_.dataType == requiredDataType)))
   }
 
   private def generateColumn = {
@@ -217,7 +232,9 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    querySession.dataTypesInAvailableRelations
+  }
 
   override def canGenerateRelational: Boolean = false
 

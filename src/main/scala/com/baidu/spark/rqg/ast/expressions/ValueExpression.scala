@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast.expressions
 
-import com.baidu.spark.rqg.{BooleanType, DataType, NumericType, RandomUtils}
+import com.baidu.spark.rqg._
 import com.baidu.spark.rqg.ast.{ExpressionGenerator, Operator, QuerySession, TreeNode}
 import com.baidu.spark.rqg.ast.operators._
 
@@ -29,14 +29,23 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): ValueExpression = {
 
-    RandomUtils.choice(choices).apply(querySession, parent, requiredDataType, isLast)
+    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+      choices.filter(_.canGeneratePrimitive)
+    } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
+      choices.filter(_.canGenerateNested)
+    } else {
+      choices
+    }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
+    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = true
 
   override def canGenerateRelational: Boolean = true
 
-  override def possibleDataTypes: Array[DataType[_]] = DataType.supportedDataTypes
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    (PrimaryExpression.possibleDataTypes(querySession) :+ BooleanType).distinct
+  }
 
   def choices = Array(PrimaryExpression, ArithmeticUnary, ArithmeticBinary, Comparison)
 
@@ -54,13 +63,20 @@ class ArithmeticUnary(
     requiredDataType: DataType[_],
     isLast: Boolean) extends ValueExpression {
 
+  querySession.allowedNestedExpressionCount -= 1
+
   val operator: Operator = RandomUtils.choice(operators)
   val valueExpression: ValueExpression = generateValueExpression
 
   private def generateValueExpression = {
     ValueExpression(querySession, Some(this), requiredDataType, isLast)
   }
-  private def operators = Array(MINUS, PLUS, TILDE)
+  private def operators = {
+    requiredDataType match {
+      case _: IntegralType[_] => Array(MINUS, PLUS, TILDE)
+      case _ => Array(MINUS, PLUS)
+    }
+  }
 
   override def sql: String = s"${operator.op} (${valueExpression.sql})"
 
@@ -74,16 +90,17 @@ class ArithmeticUnary(
  */
 object ArithmeticUnary extends ExpressionGenerator[ArithmeticUnary] {
   def apply(
-    querySession: QuerySession,
-    parent: Option[TreeNode],
-    requiredDataType: DataType[_],
-    isLast: Boolean): ArithmeticUnary =
+      querySession: QuerySession,
+      parent: Option[TreeNode],
+      requiredDataType: DataType[_],
+      isLast: Boolean): ArithmeticUnary =
     new ArithmeticUnary(querySession, parent, requiredDataType, isLast)
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] =
-    DataType.supportedDataTypes.filter(x => x.isInstanceOf[NumericType[_]])
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    ValueExpression.possibleDataTypes(querySession).filter(_.isInstanceOf[NumericType[_]])
+  }
 
   override def canGenerateRelational: Boolean = false
 
@@ -106,6 +123,8 @@ class ArithmeticBinary(
     requiredDataType: DataType[_],
     isLast: Boolean) extends ValueExpression {
 
+  querySession.allowedNestedExpressionCount -= 1
+
   val operator: Operator = RandomUtils.choice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
@@ -119,7 +138,11 @@ class ArithmeticBinary(
   }
 
   private def operators = {
-    Array(MINUS, PLUS, CONCAT)
+    if (requiredDataType.isInstanceOf[NumericType[_]]) {
+      Array(MINUS, PLUS)
+    } else {
+      Array(CONCAT)
+    }
   }
 
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
@@ -145,8 +168,8 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = {
-    DataType.supportedDataTypes.filterNot(_ == BooleanType)
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    ValueExpression.possibleDataTypes(querySession).filterNot(_ == BooleanType)
   }
 
   override def canGenerateRelational: Boolean = false
@@ -166,12 +189,18 @@ class Comparison(
     val parent: Option[TreeNode],
     isLast: Boolean) extends ValueExpression {
 
-  val dataType: DataType[_] = RandomUtils.choice(querySession.allowedDataTypes)
+  querySession.allowedNestedExpressionCount -= 1
+
+  val dataType: DataType[_] = chooseDataType
   val operator: Operator = RandomUtils.choice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
+
+  private def chooseDataType = {
+    RandomUtils.choice(querySession.dataTypesInAvailableRelations)
+  }
 
   private def generateLeft: ValueExpression = {
     ValueExpression(querySession, Some(this), dataType)
@@ -203,7 +232,9 @@ object Comparison extends ExpressionGenerator[Comparison] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes: Array[DataType[_]] = Array(BooleanType)
+  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+    Array(BooleanType)
+  }
 
   override def canGenerateRelational: Boolean = true
 
