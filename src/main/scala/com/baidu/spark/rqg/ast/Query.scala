@@ -17,6 +17,8 @@ class Query(
 
   val whereClauseOption: Option[WhereClause] = generateWhereClauseOption
 
+  val aggregationClauseOption: Option[AggregationClause] = generateAggregationClauseOption
+
   val queryOrganization: QueryOrganization = generateQueryOrganization
 
   private def generateFromClause: FromClause = {
@@ -35,6 +37,14 @@ class Query(
     }
   }
 
+  private def generateAggregationClauseOption: Option[AggregationClause] = {
+    if (RandomUtils.nextBoolean()) {
+      Some(AggregationClause(querySession, Some(this)))
+    } else {
+      None
+    }
+  }
+
   private def generateQueryOrganization: QueryOrganization = {
     QueryOrganization(querySession, Some(this))
   }
@@ -43,6 +53,7 @@ class Query(
     s"${selectClause.sql} " +
       s"${fromClause.sql} " +
       s"${whereClauseOption.map(_.sql).getOrElse("")} " +
+      s" ${aggregationClauseOption.map(_.sql).getOrElse("")} " +
       s"${queryOrganization.sql} "
 }
 
