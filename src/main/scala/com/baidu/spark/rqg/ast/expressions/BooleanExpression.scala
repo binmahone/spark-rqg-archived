@@ -203,7 +203,7 @@ class Predicated(
 
   private def generatePredicateOption = {
     if (usePredicate) {
-      Some(Predicate(querySession, Some(this), requiredDataType))
+      Some(Predicate(querySession, Some(this), valueExpression.dataType))
     } else {
       None
     }
@@ -216,7 +216,7 @@ class Predicated(
     valueExpression.dataType
   }
 
-  override def name: String = s"${valueExpression.name}${predicateOption.map("_" + _).getOrElse("")}"
+  override def name: String = s"${valueExpression.name}${predicateOption.map("_" + _.name).getOrElse("")}"
 }
 
 /**

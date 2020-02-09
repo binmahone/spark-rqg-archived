@@ -194,7 +194,7 @@ class Comparison(
   querySession.allowedNestedExpressionCount -= 1
   querySession.requiredRelationalExpressionCount -= 1
 
-  val dataType: DataType[_] = chooseDataType
+  val valueDataType: DataType[_] = chooseDataType
   val operator: Operator = RandomUtils.choice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
@@ -220,13 +220,13 @@ class Comparison(
       querySession.requiredColumnCount = 1
       querySession.needColumnFromJoiningRelation = false
       querySession.allowedNestedExpressionCount = nestedCount
-      val expression = ValueExpression(querySession, Some(this), dataType, isLast = true)
+      val expression = ValueExpression(querySession, Some(this), valueDataType, isLast = true)
       // restore back
       querySession.requiredColumnCount = 0
       querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
       expression
     } else {
-      ValueExpression(querySession, Some(this), dataType)
+      ValueExpression(querySession, Some(this), valueDataType)
     }
   }
 
@@ -238,20 +238,22 @@ class Comparison(
       querySession.requiredColumnCount = 1
       querySession.needColumnFromJoiningRelation = true
       querySession.allowedNestedExpressionCount = nestedCount
-      val expression = ValueExpression(querySession, Some(this), dataType, isLast = true)
+      val expression = ValueExpression(querySession, Some(this), valueDataType, isLast = true)
       // restore back
       querySession.requiredColumnCount = 0
       querySession.needColumnFromJoiningRelation = true
       querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
       expression
     } else {
-      ValueExpression(querySession, Some(this), dataType, isLast)
+      ValueExpression(querySession, Some(this), valueDataType, isLast)
     }
   }
 
   private def operators = Array(EQ, NEQ, NEQJ, LT, LTE, GT, GTE, NSEQ)
 
   override def name: String = s"${left.name}_${operator.name}_${right.name}"
+
+  override def dataType: DataType[_] = BooleanType
 }
 
 /**
