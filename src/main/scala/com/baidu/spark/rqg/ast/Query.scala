@@ -1,6 +1,7 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.ast.clauses.{FromClause, SelectClause}
+import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.ast.clauses._
 
 /**
  * This class represents a complete query, each member variable represents a query part. Such as:
@@ -14,6 +15,10 @@ class Query(
 
   val selectClause: SelectClause = generateSelectClause
 
+  val whereClauseOption: Option[WhereClause] = generateWhereClauseOption
+
+  val queryOrganization: QueryOrganization = generateQueryOrganization
+
   private def generateFromClause: FromClause = {
     FromClause(querySession, Some(this))
   }
@@ -22,7 +27,23 @@ class Query(
     SelectClause(querySession, Some(this))
   }
 
-  override def sql: String = s"${selectClause.sql} ${fromClause.sql}"
+  private def generateWhereClauseOption: Option[WhereClause] = {
+    if (RandomUtils.nextBoolean()) {
+      Some(WhereClause(querySession, Some(this)))
+    } else {
+      None
+    }
+  }
+
+  private def generateQueryOrganization: QueryOrganization = {
+    QueryOrganization(querySession, Some(this))
+  }
+
+  override def sql: String =
+    s"${selectClause.sql} " +
+      s"${fromClause.sql} " +
+      s"${whereClauseOption.map(_.sql).getOrElse("")} " +
+      s"${queryOrganization.sql} "
 }
 
 /**
