@@ -31,6 +31,8 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
 
     val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
+    } else if (querySession.needGenerateRelationalExpression) {
+      choices.filter(_.canGenerateRelational)
     } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
@@ -147,7 +149,7 @@ class ArithmeticBinary(
 
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
 
-  override def name: String = s"${left.name}_${operator.name}}_${right.name}"
+  override def name: String = s"${left.name}_${operator.name}_${right.name}"
 
   override def dataType: DataType[_] = requiredDataType
 }
@@ -190,24 +192,61 @@ class Comparison(
     isLast: Boolean) extends ValueExpression {
 
   querySession.allowedNestedExpressionCount -= 1
+  querySession.requiredRelationalExpressionCount -= 1
 
   val dataType: DataType[_] = chooseDataType
   val operator: Operator = RandomUtils.choice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
+  // restore querySession back
+  querySession.requiredColumnCount = 0
+  querySession.needColumnFromJoiningRelation = false
+
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
 
   private def chooseDataType = {
-    RandomUtils.choice(querySession.dataTypesInAvailableRelations)
+    RandomUtils.choice(querySession.commonDataTypesForJoin)
   }
 
   private def generateLeft: ValueExpression = {
-    ValueExpression(querySession, Some(this), dataType)
+    // For joinCriteria, we treat left and right expression as an independent new expression, and
+    // use a new querySession state to control the generation. after this, we restore the state back
+    // This is a little bit tricky but useful to make sure we have at least one column in the
+    // child expression
+    if (querySession.joiningRelation.isDefined) {
+      val previousNestedCount = querySession.allowedNestedExpressionCount
+      val nestedCount = RandomUtils.choice(0, previousNestedCount)
+      querySession.requiredColumnCount = 1
+      querySession.needColumnFromJoiningRelation = false
+      querySession.allowedNestedExpressionCount = nestedCount
+      val expression = ValueExpression(querySession, Some(this), dataType, isLast = true)
+      // restore back
+      querySession.requiredColumnCount = 0
+      querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
+      expression
+    } else {
+      ValueExpression(querySession, Some(this), dataType)
+    }
   }
 
   private def generateRight: ValueExpression = {
-    ValueExpression(querySession, Some(this), dataType, isLast)
+    // We always choose column from joining relation for right expr of comparison
+    if (querySession.joiningRelation.isDefined) {
+      val previousNestedCount = querySession.allowedNestedExpressionCount
+      val nestedCount = RandomUtils.choice(0, previousNestedCount)
+      querySession.requiredColumnCount = 1
+      querySession.needColumnFromJoiningRelation = true
+      querySession.allowedNestedExpressionCount = nestedCount
+      val expression = ValueExpression(querySession, Some(this), dataType, isLast = true)
+      // restore back
+      querySession.requiredColumnCount = 0
+      querySession.needColumnFromJoiningRelation = true
+      querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
+      expression
+    } else {
+      ValueExpression(querySession, Some(this), dataType, isLast)
+    }
   }
 
   private def operators = Array(EQ, NEQ, NEQJ, LT, LTE, GT, GTE, NSEQ)

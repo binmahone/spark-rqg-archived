@@ -49,7 +49,9 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): PrimaryExpression = {
 
-    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+    val filteredChoices = (if (querySession.needGenerateColumnExpression) {
+      choices.filter(_ == ColumnReference)
+    } else if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else {
       choices
@@ -202,9 +204,15 @@ class ColumnReference(
   private val column = generateColumn
 
   private def generateRelation = {
-    RandomUtils.choice(
-      querySession.availableRelations
-        .filter(_.columns.exists(_.dataType == requiredDataType)))
+    if (querySession.needColumnFromJoiningRelation) {
+      querySession.joiningRelation.getOrElse {
+        throw new IllegalArgumentException("No JoiningRelation exists to choose Column")
+      }
+    } else {
+      RandomUtils.choice(
+        querySession.availableRelations
+          .filter(_.columns.exists(_.dataType == requiredDataType)))
+    }
   }
 
   private def generateColumn = {

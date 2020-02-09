@@ -33,6 +33,8 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
 
     val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
+    } else if (querySession.needGenerateRelationalExpression) {
+      choices.filter(_.canGenerateRelational)
     } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
@@ -175,9 +177,11 @@ class Predicated(
 
   // We treat valueExpression IS BETWEEN a AND b as nested expression and valueExpression
   // itself as "Maybe" primitive expression, i.e. it can generate Constant. Also, if required
-  // data type is not boolean, we don't use predicate.
+  // data type is not boolean, we don't use predicate. If we need generate relational expression,
+  // don't use predicate as well.
   private val usePredicate =
     !querySession.needGeneratePrimitiveExpression &&
+      !querySession.needGenerateRelationalExpression &&
       requiredDataType == BooleanType &&
       RandomUtils.nextBoolean()
 

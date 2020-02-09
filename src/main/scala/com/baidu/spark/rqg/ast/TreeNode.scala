@@ -24,6 +24,9 @@ case class QuerySession(
     var joiningRelation: Option[RelationPrimary] = None,
     var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes,
     var allowedNestedExpressionCount: Int = 5,
+    var requiredRelationalExpressionCount: Int = 0,
+    var requiredColumnCount: Int = 0,
+    var needColumnFromJoiningRelation: Boolean = false,
     var nextAliasId: Int = 0) {
   def nextAlias(prefix: String): String = {
     val id = nextAliasId
@@ -31,12 +34,28 @@ case class QuerySession(
     s"${prefix}_alias_$id"
   }
 
+  def needGenerateRelationalExpression: Boolean = {
+    requiredRelationalExpressionCount > 0 &&
+      requiredRelationalExpressionCount <= allowedNestedExpressionCount
+  }
+
   def needGeneratePrimitiveExpression: Boolean = {
     allowedNestedExpressionCount <= 0
   }
 
+  def needGenerateColumnExpression: Boolean = {
+    needGeneratePrimitiveExpression && requiredColumnCount > 0
+  }
+
   def dataTypesInAvailableRelations: Array[DataType[_]] = {
     allowedDataTypes.intersect(availableRelations.flatMap(_.columns).map(_.dataType)).distinct
+  }
+
+  def commonDataTypesForJoin: Array[DataType[_]] = {
+    joiningRelation.map(_.columns.map(_.dataType))
+      .map(_.intersect(dataTypesInAvailableRelations))
+      .getOrElse(dataTypesInAvailableRelations)
+      .distinct
   }
 
   def relationsBasedOnAllowedDataType: Array[RelationPrimary] = {
