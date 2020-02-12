@@ -2,7 +2,7 @@ package com.baidu.spark.rqg.ast.clauses
 
 import com.baidu.spark.rqg.RandomUtils
 import com.baidu.spark.rqg.ast.expressions.NamedExpression
-import com.baidu.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import com.baidu.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNodeGenerator}
 
 /**
  * selectClause
@@ -20,7 +20,16 @@ class SelectClause(
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
     (0 until RandomUtils.choice(1, 5))
-      .map(_ => NamedExpression(querySession, Some(this)))
+      .map { _ =>
+        val useAgg = RandomUtils.nextBoolean()
+        if (useAgg) {
+          querySession.aggPreference = AggPreference.PREFER
+        }
+        val dataType = RandomUtils.nextChoice(querySession.allowedDataTypes)
+        val nestedCount = RandomUtils.choice(0, 5)
+        querySession.allowedNestedExpressionCount = nestedCount
+        NamedExpression(querySession, Some(this), dataType, isLast = true)
+      }
   }
 
   override def sql: String = s"SELECT " +

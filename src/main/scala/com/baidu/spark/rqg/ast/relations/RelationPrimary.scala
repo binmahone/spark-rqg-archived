@@ -29,7 +29,7 @@ object RelationPrimary extends RelationPrimaryGenerator[RelationPrimary] {
       querySession: QuerySession,
       parent: Option[TreeNode]): RelationPrimary = {
 
-    RandomUtils.choice(choices).apply(querySession, parent)
+    RandomUtils.nextChoice(choices).apply(querySession, parent)
   }
 
   def choices = Array(TableReference)

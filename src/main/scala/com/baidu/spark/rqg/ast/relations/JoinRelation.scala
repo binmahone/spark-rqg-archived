@@ -17,7 +17,7 @@ class JoinRelation(
 
   private val joinTypes = Array("INNER", "CROSS", "LEFT OUTER", "RIGHT OUTER", "FULL OUTER")
 
-  val joinType: String = RandomUtils.choice(joinTypes)
+  val joinType: String = RandomUtils.nextChoice(joinTypes)
   val relationPrimary: RelationPrimary = generateRelationPrimary
   val joinCriteria: JoinCriteria = generateJoinCriteria
 

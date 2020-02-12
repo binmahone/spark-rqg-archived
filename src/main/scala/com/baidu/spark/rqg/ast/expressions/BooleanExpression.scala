@@ -35,12 +35,14 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       choices.filter(_.canGeneratePrimitive)
     } else if (querySession.needGenerateRelationalExpression) {
       choices.filter(_.canGenerateRelational)
+    } else if (querySession.needGenerateAggFunction) {
+      choices.filter(_.canGenerateAggFunc)
     } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
       choices
     }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
-    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   private def choices = Array(LogicalNot, Predicated, LogicalBinary)
@@ -52,6 +54,8 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
   }
 
   override def canGenerateRelational: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = true
 
   override def canGenerateNested: Boolean = true
 }
@@ -77,6 +81,12 @@ class LogicalNot(
   override def sql: String = s"NOT (${booleanExpression.sql})"
 
   override def dataType: DataType[_] = BooleanType
+
+  override def isAgg: Boolean = booleanExpression.isAgg
+
+  override def columns: Seq[ColumnReference] = booleanExpression.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = booleanExpression.nonAggColumns
 }
 
 /**
@@ -102,6 +112,8 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
   }
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 /**
@@ -117,7 +129,7 @@ class LogicalBinary(
 
   querySession.allowedNestedExpressionCount -= 1
 
-  val operator: Operator = RandomUtils.choice(operators)
+  val operator: Operator = RandomUtils.nextChoice(operators)
   val left: BooleanExpression = generateLeft
   val right: BooleanExpression = generateRight
 
@@ -136,6 +148,12 @@ class LogicalBinary(
   private def operators = Array(AND, OR)
 
   override def name: String = s"${left.name}_${operator.name}_${right.name}"
+
+  override def isAgg: Boolean = left.isAgg || right.isAgg
+
+  override def columns: Seq[ColumnReference] = left.columns ++ right.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = left.nonAggColumns ++ left.nonAggColumns
 }
 
 /**
@@ -161,6 +179,8 @@ object LogicalBinary extends ExpressionGenerator[LogicalBinary] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 /**
@@ -181,7 +201,8 @@ class Predicated(
   // don't use predicate as well.
   private val usePredicate =
     !querySession.needGeneratePrimitiveExpression &&
-      !querySession.needGenerateRelationalExpression &&
+      querySession.requiredRelationalExpressionCount > 0 &&
+      querySession.aggPreference == AggPreference.PREFER &&
       requiredDataType == BooleanType &&
       RandomUtils.nextBoolean()
 
@@ -193,11 +214,13 @@ class Predicated(
   val predicateOption: Option[Predicate] = generatePredicateOption
 
   private def generateValueExpression = {
-    val valueExpressionDataType = if (usePredicate) {
-      RandomUtils.choice(querySession.dataTypesInAvailableRelations)
-    } else {
-      requiredDataType
-    }
+    val valueExpressionDataType =
+      // check relation requirement again. This is a little bit tricky
+      if (usePredicate && !querySession.needGenerateRelationalExpression) {
+        RandomUtils.nextChoice(querySession.dataTypesInAvailableRelations)
+      } else {
+        requiredDataType
+      }
     ValueExpression(querySession, Some(this), valueExpressionDataType, isLast)
   }
 
@@ -217,6 +240,12 @@ class Predicated(
   }
 
   override def name: String = s"${valueExpression.name}${predicateOption.map("_" + _.name).getOrElse("")}"
+
+  override def isAgg: Boolean = valueExpression.isAgg
+
+  override def columns: Seq[ColumnReference] = valueExpression.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = valueExpression.nonAggColumns
 }
 
 /**
@@ -240,4 +269,6 @@ object Predicated extends ExpressionGenerator[Predicated] {
   override def canGenerateRelational: Boolean = true
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = true
 }

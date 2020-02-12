@@ -9,4 +9,8 @@ import com.baidu.spark.rqg.DataType
 trait Expression {
   def name: String
   def dataType: DataType[_]
+  def isAgg: Boolean
+
+  def columns: Seq[ColumnReference]
+  def nonAggColumns: Seq[ColumnReference]
 }

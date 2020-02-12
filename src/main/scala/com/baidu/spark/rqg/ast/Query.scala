@@ -38,7 +38,7 @@ class Query(
   }
 
   private def generateAggregationClauseOption: Option[AggregationClause] = {
-    if (RandomUtils.nextBoolean()) {
+    if (selectClause.namedExpressionSeq.exists(_.isAgg) || RandomUtils.nextBoolean()) {
       Some(AggregationClause(querySession, Some(this)))
     } else {
       None

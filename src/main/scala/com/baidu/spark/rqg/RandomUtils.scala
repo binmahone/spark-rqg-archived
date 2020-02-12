@@ -10,11 +10,11 @@ object RandomUtils extends Logging {
   private val randomSeed = new Random().nextInt()
   logInfo(s"RandomUtils inited with randomSeed = $randomSeed")
 
-  private val random = new Random(randomSeed)
+  private val random = new Random(900222757)
 
   private val valueGenerator = new ValueGenerator(random)
 
-  def choice[T](choices: Array[T]): T = {
+  def nextChoice[T](choices: Array[T]): T = {
     choices(random.nextInt(choices.length))
   }
 

@@ -18,6 +18,7 @@ class QueryValidator(querySession: QuerySession) {
   }
 
   def assertValid(query: String): Unit = {
+    println(query)
     sparkSession.sql(query).queryExecution.assertAnalyzed()
   }
 }

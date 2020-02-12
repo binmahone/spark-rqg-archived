@@ -1,5 +1,6 @@
 package com.baidu.spark.rqg.ast.clauses
 
+import com.baidu.spark.rqg.RandomUtils
 import com.baidu.spark.rqg.ast.{Query, QuerySession, TreeNode, TreeNodeGenerator}
 
 /**
@@ -26,11 +27,19 @@ class AggregationClause(
   val groupingExpressions: Seq[String] = generateGroupingExpressions
 
   private def generateGroupingExpressions: Seq[String] = {
-    parent match {
+    val expressions = parent match {
       case Some(query: Query) =>
-        query.selectClause.namedExpressionSeq.map(_.alias.get)
+        query.selectClause.namedExpressionSeq.filterNot(_.isAgg).map(_.alias.get) ++
+          query.selectClause.namedExpressionSeq.filter(_.isAgg).flatMap(_.nonAggColumns).map(_.sql)
       case _ =>
         throw new IllegalArgumentException("AggregationClause's parent is not Query")
+    }
+    if (expressions.isEmpty) {
+      val relation = RandomUtils.nextChoice(querySession.availableRelations)
+      val column = RandomUtils.nextChoice(relation.columns)
+      Seq(s"${relation.name}.${column.name}")
+    } else {
+      expressions
     }
   }
 

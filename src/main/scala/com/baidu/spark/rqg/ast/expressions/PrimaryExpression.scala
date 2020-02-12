@@ -1,7 +1,8 @@
 package com.baidu.spark.rqg.ast.expressions
 
 import com.baidu.spark.rqg.{DataType, RandomUtils, StringType}
-import com.baidu.spark.rqg.ast.{ExpressionGenerator, QuerySession, TreeNode}
+import com.baidu.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QuerySession, Signature, TreeNode}
+import com.baidu.spark.rqg.ast.functions._
 
 /**
  * primaryExpression
@@ -49,14 +50,20 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): PrimaryExpression = {
 
-    val filteredChoices = (if (querySession.needGenerateColumnExpression) {
+    val filteredChoices = (if (querySession.needGenerateAggFunction) {
+      choices.filter(_.canGenerateAggFunc)
+    } else if (querySession.needGenerateColumnExpression) {
       choices.filter(_ == ColumnReference)
     } else if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else {
       choices
     }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
-    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+
+    if (filteredChoices.isEmpty) {
+      throw new Exception()
+    }
+    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = true
@@ -70,6 +77,8 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
   def choices = Array(Constant, ColumnReference, Star, FunctionCall)
 
   override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = true
 }
 
 /**
@@ -94,6 +103,12 @@ class Constant(
   override def name: String = "constant"
 
   override def dataType: DataType[_] = requiredDataType
+
+  override def isAgg: Boolean = false
+
+  override def columns: Seq[ColumnReference] = Seq.empty
+
+  override def nonAggColumns: Seq[ColumnReference] = Seq.empty
 }
 
 /**
@@ -117,6 +132,8 @@ object Constant extends ExpressionGenerator[Constant] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 class Star(
@@ -128,6 +145,12 @@ class Star(
 
   // TODO: what should we return?
   override def dataType: DataType[_] = ???
+
+  override def isAgg: Boolean = false
+
+  override def columns: Seq[ColumnReference] = ???
+
+  override def nonAggColumns: Seq[ColumnReference] = ???
 }
 
 /**
@@ -151,9 +174,12 @@ object Star extends ExpressionGenerator[Star] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 /**
+ * grammar: qualifiedName '(' (setQuantifier? argument+=expression (',' argument+=expression)*)? ')'
  * All spark function call generated from here.
  */
 class FunctionCall(
@@ -162,11 +188,52 @@ class FunctionCall(
     requiredDataType: DataType[_],
     isLast: Boolean) extends PrimaryExpression {
 
-  override def sql: String = s"FunctionCall_$dataType"
+  querySession.allowedNestedExpressionCount -= 1
 
-  override def name: String = s"func_$dataType"
+  val func: Function = generateFunction
+
+  val signature: Signature = generateSignature
+
+  val arguments: Seq[BooleanExpression] = generateArguments
+
+  private def generateFunction: Function = {
+    val functions = if (querySession.aggPreference == AggPreference.FORBID) {
+      FunctionCall.supportedFunctions.filterNot(_.isAgg)
+    } else if (querySession.needGenerateAggFunction) {
+      FunctionCall.supportedFunctions.filter(_.isAgg)
+    } else {
+      FunctionCall.supportedFunctions
+    }
+    RandomUtils.nextChoice(functions.filter(_.signatures.exists(_.returnType == requiredDataType)))
+  }
+
+  private def generateSignature: Signature = {
+    RandomUtils.nextChoice(func.signatures.filter(_.returnType == requiredDataType).toArray)
+  }
+
+  private def generateArguments: Seq[BooleanExpression] = {
+    val previous = querySession.aggPreference
+    if (func.isAgg) querySession.aggPreference = AggPreference.FORBID
+    val length = signature.inputTypes.length
+    val arguments = signature.inputTypes.zipWithIndex.map {
+      case (dt, idx) =>
+        BooleanExpression(querySession, Some(this), dt, isLast = idx == (length - 1))
+    }
+    if (previous != AggPreference.FORBID) querySession.aggPreference = AggPreference.ALLOW
+    arguments
+  }
+
+  override def sql: String = s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
+
+  override def name: String = s"func_${dataType.typeName}"
 
   override def dataType: DataType[_] = requiredDataType
+
+  override def isAgg: Boolean = func.isAgg || arguments.exists(_.isAgg)
+
+  override def columns: Seq[ColumnReference] = arguments.flatMap(_.columns)
+
+  override def nonAggColumns: Seq[ColumnReference] = if (isAgg) Seq.empty else columns
 }
 
 /**
@@ -181,15 +248,23 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
     new FunctionCall(querySession, parent, requiredDataType, isLast)
   }
 
+  private def supportedFunctions = Array(COUNT, SUM, ABS, FIRST)
+
   override def canGeneratePrimitive: Boolean = false
 
   override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
-    Array.empty
+    (if (querySession.aggPreference == AggPreference.FORBID) {
+      supportedFunctions.filterNot(_.isAgg)
+    } else {
+      supportedFunctions
+    }).flatMap(_.signatures).map(_.returnType).distinct
   }
 
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = true
 }
 
 /**
@@ -209,14 +284,14 @@ class ColumnReference(
         throw new IllegalArgumentException("No JoiningRelation exists to choose Column")
       }
     } else {
-      RandomUtils.choice(
+      RandomUtils.nextChoice(
         querySession.availableRelations
           .filter(_.columns.exists(_.dataType == requiredDataType)))
     }
   }
 
   private def generateColumn = {
-    RandomUtils.choice(relation.columns.filter(_.dataType == requiredDataType))
+    RandomUtils.nextChoice(relation.columns.filter(_.dataType == requiredDataType))
   }
 
   override def sql: String = s"${relation.name}.${column.name}"
@@ -224,6 +299,12 @@ class ColumnReference(
   override def name: String = s"${relation.name}_${column.name}"
 
   override def dataType: DataType[_] = requiredDataType
+
+  override def isAgg: Boolean = false
+
+  override def columns: Seq[ColumnReference] = Seq(this)
+
+  override def nonAggColumns: Seq[ColumnReference] = columns
 }
 
 /**
@@ -247,5 +328,7 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = false
 }
 

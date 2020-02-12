@@ -33,12 +33,14 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
       choices.filter(_.canGeneratePrimitive)
     } else if (querySession.needGenerateRelationalExpression) {
       choices.filter(_.canGenerateRelational)
+    } else if (querySession.needGenerateAggFunction) {
+      choices.filter(_.canGenerateAggFunc)
     } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
       choices
     }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
-    RandomUtils.choice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = true
@@ -52,6 +54,8 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
   def choices = Array(PrimaryExpression, ArithmeticUnary, ArithmeticBinary, Comparison)
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = true
 }
 
 /**
@@ -67,7 +71,7 @@ class ArithmeticUnary(
 
   querySession.allowedNestedExpressionCount -= 1
 
-  val operator: Operator = RandomUtils.choice(operators)
+  val operator: Operator = RandomUtils.nextChoice(operators)
   val valueExpression: ValueExpression = generateValueExpression
 
   private def generateValueExpression = {
@@ -85,6 +89,12 @@ class ArithmeticUnary(
   override def name: String = s"${operator.name}_${valueExpression.name}"
 
   override def dataType: DataType[_] = valueExpression.dataType
+
+  override def isAgg: Boolean = valueExpression.isAgg
+
+  override def columns: Seq[ColumnReference] = valueExpression.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = valueExpression.nonAggColumns
 }
 
 /**
@@ -107,6 +117,8 @@ object ArithmeticUnary extends ExpressionGenerator[ArithmeticUnary] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 /**
@@ -127,7 +139,7 @@ class ArithmeticBinary(
 
   querySession.allowedNestedExpressionCount -= 1
 
-  val operator: Operator = RandomUtils.choice(operators)
+  val operator: Operator = RandomUtils.nextChoice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
@@ -152,6 +164,12 @@ class ArithmeticBinary(
   override def name: String = s"${left.name}_${operator.name}_${right.name}"
 
   override def dataType: DataType[_] = requiredDataType
+
+  override def isAgg: Boolean = left.isAgg || right.isAgg
+
+  override def columns: Seq[ColumnReference] = left.columns ++ right.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = left.nonAggColumns ++ right.nonAggColumns
 }
 
 /**
@@ -177,6 +195,8 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
   override def canGenerateRelational: Boolean = false
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = false
 }
 
 /**
@@ -195,7 +215,7 @@ class Comparison(
   querySession.requiredRelationalExpressionCount -= 1
 
   val valueDataType: DataType[_] = chooseDataType
-  val operator: Operator = RandomUtils.choice(operators)
+  val operator: Operator = RandomUtils.nextChoice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
@@ -206,7 +226,10 @@ class Comparison(
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
 
   private def chooseDataType = {
-    RandomUtils.choice(querySession.commonDataTypesForJoin)
+    querySession.allowedDataTypes = DataType.joinableDataTypes
+    val dataType = RandomUtils.nextChoice(querySession.commonDataTypesForJoin)
+    querySession.allowedDataTypes = DataType.supportedDataTypes
+    dataType
   }
 
   private def generateLeft: ValueExpression = {
@@ -254,6 +277,12 @@ class Comparison(
   override def name: String = s"${left.name}_${operator.name}_${right.name}"
 
   override def dataType: DataType[_] = BooleanType
+
+  override def isAgg: Boolean = left.isAgg || right.isAgg
+
+  override def columns: Seq[ColumnReference] = left.columns ++ right.columns
+
+  override def nonAggColumns: Seq[ColumnReference] = left.nonAggColumns ++ right.nonAggColumns
 }
 
 /**
@@ -280,4 +309,6 @@ object Comparison extends ExpressionGenerator[Comparison] {
   override def canGenerateRelational: Boolean = true
 
   override def canGenerateNested: Boolean = true
+
+  override def canGenerateAggFunc: Boolean = false
 }

@@ -46,6 +46,8 @@ trait ExpressionGenerator[T] extends Generator[T] {
    */
   def canGenerateRelational: Boolean
 
+  def canGenerateAggFunc: Boolean
+
   /**
    * If a generator is possible to generat a nested expression, like LogicalBinary, return true.
    * For example, ColumnReference should return false

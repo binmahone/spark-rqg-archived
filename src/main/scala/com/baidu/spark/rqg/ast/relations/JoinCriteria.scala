@@ -31,9 +31,13 @@ class JoinCriteria(
     val prevAllowedDataTypes = querySession.allowedDataTypes
     querySession.requiredRelationalExpressionCount = 1
     querySession.allowedNestedExpressionCount = 5
-    querySession.allowedDataTypes = DataType.joinableDataTypes
-    val booleanExpression = BooleanExpression(querySession, Some(this), BooleanType)
+    val booleanExpression = BooleanExpression(querySession, Some(this), BooleanType, isLast = true)
     querySession.allowedDataTypes = prevAllowedDataTypes
+    if (querySession.requiredRelationalExpressionCount > 0) {
+      throw new Exception()
+    } else {
+      querySession.requiredRelationalExpressionCount = 0
+    }
     booleanExpression
   }
 

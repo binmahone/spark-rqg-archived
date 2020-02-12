@@ -27,6 +27,7 @@ case class QuerySession(
     var requiredRelationalExpressionCount: Int = 0,
     var requiredColumnCount: Int = 0,
     var needColumnFromJoiningRelation: Boolean = false,
+    var aggPreference: Int = AggPreference.FORBID,
     var nextAliasId: Int = 0) {
   def nextAlias(prefix: String): String = {
     val id = nextAliasId
@@ -36,7 +37,7 @@ case class QuerySession(
 
   def needGenerateRelationalExpression: Boolean = {
     requiredRelationalExpressionCount > 0 &&
-      requiredRelationalExpressionCount <= allowedNestedExpressionCount
+      requiredRelationalExpressionCount == allowedNestedExpressionCount
   }
 
   def needGeneratePrimitiveExpression: Boolean = {
@@ -45,6 +46,10 @@ case class QuerySession(
 
   def needGenerateColumnExpression: Boolean = {
     needGeneratePrimitiveExpression && requiredColumnCount > 0
+  }
+
+  def needGenerateAggFunction: Boolean = {
+    aggPreference == AggPreference.PREFER && allowedNestedExpressionCount == 1
   }
 
   def dataTypesInAvailableRelations: Array[DataType[_]] = {
@@ -72,3 +77,9 @@ case class Table(name: String, columns: Array[Column])
  * Represents a column from db
  */
 case class Column(tableName: String, name: String, dataType: DataType[_])
+
+object AggPreference {
+  val PREFER = 0
+  val ALLOW = 1
+  val FORBID = 2
+}
