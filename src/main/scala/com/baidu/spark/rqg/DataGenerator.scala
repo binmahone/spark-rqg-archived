@@ -2,18 +2,22 @@ package com.baidu.spark.rqg
 
 import scala.util.Random
 
+import com.baidu.spark.rqg.parser.DataGeneratorOptions
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
+
 import org.apache.spark.sql.SparkSession
 
 class DataGenerator(
-    dbName: String, warehouse: String, tableCount: Int,
+    dbName: String, tableCount: Int,
     minRowCount: Int, maxRowCount: Int,
     minColumnCount: Int, maxColumnCount: Int,
-    allowedDataSources: Array[String], randomSeed: Int = 0) {
+    allowedDataSources: Array[String], randomSeed: Int,
+    sparkConnection: SparkConnection) {
 
-  val sparkConnection: SparkConnection =
-    SparkConnection.openConnection("jdbc:hive2://localhost:10000")
+  val warehouse: String = {
+    new Path(FileSystem.get(new Configuration()).getHomeDirectory, "test_warehouse").toString
+  }
 
   // TODO: get this from user input or spark config
   val sparkSession: SparkSession = SparkSession.builder().master("local[2]").getOrCreate()
@@ -134,23 +138,27 @@ class DataGenerator(
 object DataGenerator {
 
   def main(args: Array[String]): Unit = {
-    // TODO: options parser
-    val dbName = "rqg_test_db"
-    val warehouse = "/Users/liulinhong/workspace/spark-rqg-workspace/warehouse"
-    val tableCount = 5
-    val minColumnCount = 3
-    val maxColumnCount = 10
-    // val minRowCount = 400000
-    // val maxRowCount = 500000
-    val minRowCount = 400
-    val maxRowCount = 500
-    val allowedDataSources = Array[String]("parquet", "json", "hive")
-    val seed = 100
+    val options = DataGeneratorOptions.parse(args)
+
+    val randomizationSeed = options.randomizationSeed
+    val dbName = options.dbName
+    val tableCount = options.tableCount
+    val minColumnCount = options.minColumnCount
+    val maxColumnCount = options.maxColumnCount
+    val minRowCount = options.minRowCount
+    val maxRowCount = options.maxRowCount
+    val allowedDataSources = options.dataSources.map(_.toString)
+
+    val sparkConnection =
+      SparkConnection.openConnection(s"jdbc:hive2://${options.refHost}:${options.refPort}")
+
     val dataGenerator = new DataGenerator(
-      dbName, warehouse, tableCount,
+      dbName, tableCount,
       minRowCount, maxRowCount,
       minColumnCount, maxColumnCount,
-      allowedDataSources, seed)
+      allowedDataSources.toArray, randomizationSeed,
+      sparkConnection)
+
     dataGenerator.populateDB()
   }
 }
