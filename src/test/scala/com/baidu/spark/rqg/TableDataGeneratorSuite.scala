@@ -8,10 +8,6 @@ import org.scalatest.FunSuite
 
 class TableDataGeneratorSuite extends FunSuite {
 
-  private val seed = new Random().nextInt()
-  println(s"Random seed is $seed")
-  private val random = new Random(seed)
-
   test("basic") {
     val rowCount = 100
     val columnInt = RQGColumn("column_int", IntType)
@@ -20,7 +16,7 @@ class TableDataGeneratorSuite extends FunSuite {
     val table = RQGTable("rqg_db", "rqg_table", Seq(columnInt, columnString, columnDecimal))
 
     val outputStream = new ByteArrayOutputStream()
-    TableDataGenerator.generateData(table, outputStream, rowCount, random)
+    TableDataGenerator.generateData(table, outputStream, rowCount)
     val rows = new String(outputStream.toByteArray).split('\n')
     assert(rows.length == rowCount)
     rows.foreach { row =>

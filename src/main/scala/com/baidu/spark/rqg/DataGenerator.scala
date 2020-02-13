@@ -1,7 +1,5 @@
 package com.baidu.spark.rqg
 
-import scala.util.Random
-
 import com.baidu.spark.rqg.parser.DataGeneratorOptions
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -12,7 +10,7 @@ class DataGenerator(
     dbName: String, tableCount: Int,
     minRowCount: Int, maxRowCount: Int,
     minColumnCount: Int, maxColumnCount: Int,
-    allowedDataSources: Array[String], randomSeed: Int,
+    allowedDataSources: Array[String],
     sparkConnection: SparkConnection) {
 
   val warehouse: String = {
@@ -21,8 +19,6 @@ class DataGenerator(
 
   // TODO: get this from user input or spark config
   val sparkSession: SparkSession = SparkSession.builder().master("local[2]").getOrCreate()
-
-  val random = new Random(randomSeed)
 
   private val TEMP_TABLE_SUFFIX = "_hive_temp"
 
@@ -48,15 +44,15 @@ class DataGenerator(
 
     // Generate table date to each table location.
     val tasks = bulkLoadTables.flatMap { table =>
-      val rowCount = random.nextInt(maxRowCount - minRowCount + 1) + minRowCount
+      val rowCount = RandomUtils.choice(minRowCount, maxRowCount)
       // TODO: get this from user input
       val bytesPerBatch = 10 * 1024 * 1024
-      val bytesPerRow = TableDataGenerator.estimateBytesPerRow(table, 10, random)
+      val bytesPerRow = TableDataGenerator.estimateBytesPerRow(table, 10)
       val rowsPerBatch = math.max(bytesPerBatch / bytesPerRow, 1)
       val batchCount = (rowCount + rowsPerBatch - 1) / rowsPerBatch
       (0 until batchCount).map { batchIdx =>
         val batchRowCount = math.min(rowCount - batchIdx * rowsPerBatch, rowsPerBatch)
-        TableDataGenerationTask(table, batchIdx, batchRowCount, randomSeed)
+        TableDataGenerationTask(table, batchIdx, batchRowCount, RandomUtils.getSeed)
       }
     }
 
@@ -77,15 +73,18 @@ class DataGenerator(
         dropTable(tempTable)
         cleanupTableStorage(tempTable)
       }
+
+    sparkSession.stop()
   }
 
   def generateRandomRQGTable(tableName: String): RQGTable = {
 
-    val provider = allowedDataSources(random.nextInt(allowedDataSources.length))
-    val columnCount = random.nextInt(maxColumnCount - minColumnCount + 1) + minColumnCount
+    val provider = RandomUtils.nextChoice(allowedDataSources)
+
+    val columnCount = RandomUtils.choice(minColumnCount, maxColumnCount)
     val columns = (1 to columnCount).map { idx =>
       val dataType =
-        DataType.supportedDataTypes(random.nextInt(DataType.supportedDataTypes.length)) match {
+        RandomUtils.nextChoice(DataType.supportedDataTypes) match {
           case s: StringType =>
             // TODO: use user-defined min/max or use random min/max within a user-defined range
             val minLength = 10
@@ -141,6 +140,8 @@ object DataGenerator {
     val options = DataGeneratorOptions.parse(args)
 
     val randomizationSeed = options.randomizationSeed
+    RandomUtils.setSeed(randomizationSeed)
+
     val dbName = options.dbName
     val tableCount = options.tableCount
     val minColumnCount = options.minColumnCount
@@ -156,7 +157,7 @@ object DataGenerator {
       dbName, tableCount,
       minRowCount, maxRowCount,
       minColumnCount, maxColumnCount,
-      allowedDataSources.toArray, randomizationSeed,
+      allowedDataSources.toArray,
       sparkConnection)
 
     dataGenerator.populateDB()
