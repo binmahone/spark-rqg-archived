@@ -27,11 +27,9 @@ class ValueGeneratorSuite extends FunSuite {
   }
 
   test("string") {
-    val minLength = 0
-    val maxLength = 5
-    val value = generator.generateValue(StringType(minLength, maxLength))
-    assert(value.length >= minLength && value.length <= maxLength,
-      s"length of $value is not in the range of [$minLength, $maxLength]")
+    val value = generator.generateValue(StringType)
+    assert(value.length >= 0 && value.length <= StringType.MAX_LENGTH,
+      s"length of $value is not in the range of [0, ${StringType.MAX_LENGTH}]")
   }
 
   test("decimal") {

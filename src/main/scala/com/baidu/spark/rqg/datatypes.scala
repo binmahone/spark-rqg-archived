@@ -2,9 +2,18 @@ package com.baidu.spark.rqg
 
 trait DataType[T] {
   def typeName: String
+  def sameType(other: DataType[_]): Boolean = this == other
+  def acceptsType(other: DataType[_]): Boolean = sameType(other)
 }
-trait NumericType[T] extends DataType[T]
-trait IntegralType[T] extends NumericType[T]
+
+trait NumericType[T] extends DataType[T] {
+  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[NumericType[_]]
+}
+
+trait IntegralType[T] extends NumericType[T] {
+  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[IntegralType[_]]
+}
+
 trait FractionalType[T] extends NumericType[T]
 
 object DataType {
@@ -16,7 +25,7 @@ object DataType {
     BigIntType,
     FloatType,
     DoubleType,
-    StringType(),
+    StringType,
     DecimalType()
   )
 
@@ -27,7 +36,7 @@ object DataType {
     BigIntType,
     FloatType,
     DoubleType,
-    StringType(),
+    StringType,
     DecimalType()
   )
 }
@@ -55,19 +64,23 @@ case object DoubleType extends FractionalType[Double] {
   def typeName = "double"
 }
 
-case class StringType(minLength: Int = 0, maxLength: Int = 10) extends DataType[String] {
-  val MAX_LENGTH = 256
-  require(minLength >= 0 && maxLength <= MAX_LENGTH)
+case object StringType extends DataType[String] {
+  val MAX_LENGTH = 32
 
   def typeName = "string"
 }
 
 case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalType[Double] {
-  val MAX_PRECISION = 38
-  require(scale <= precision && precision <= MAX_PRECISION)
+  require(scale <= precision && precision <= DecimalType.MAX_PRECISION)
 
   val bound = math.pow(10, precision).toLong
   val fractional = math.pow(10, scale)
 
   override def typeName: String = s"decimal"
+
+  override def sameType(other: DataType[_]): Boolean = other.isInstanceOf[DecimalType]
+}
+
+object DecimalType {
+  val MAX_PRECISION = 38
 }

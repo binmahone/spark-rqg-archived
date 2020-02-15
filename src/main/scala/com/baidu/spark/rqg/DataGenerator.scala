@@ -85,12 +85,6 @@ class DataGenerator(
     val columns = (1 to columnCount).map { idx =>
       val dataType =
         RandomUtils.nextChoice(DataType.supportedDataTypes) match {
-          case s: StringType =>
-            // TODO: use user-defined min/max or use random min/max within a user-defined range
-            val minLength = 10
-            val maxLength = 20
-            s.copy(minLength = minLength, maxLength = maxLength)
-
           case d: DecimalType =>
             val precision = 12
             val scale = 4

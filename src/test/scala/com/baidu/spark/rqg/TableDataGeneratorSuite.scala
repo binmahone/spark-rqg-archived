@@ -11,7 +11,7 @@ class TableDataGeneratorSuite extends FunSuite {
   test("basic") {
     val rowCount = 100
     val columnInt = RQGColumn("column_int", IntType)
-    val columnString = RQGColumn("column_string", StringType(0, 20))
+    val columnString = RQGColumn("column_string", StringType)
     val columnDecimal = RQGColumn("column_decimal", DecimalType(10, 5))
     val table = RQGTable("rqg_db", "rqg_table", Seq(columnInt, columnString, columnDecimal))
 

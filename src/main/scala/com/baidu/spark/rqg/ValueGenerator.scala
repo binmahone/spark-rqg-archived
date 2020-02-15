@@ -20,8 +20,8 @@ class ValueGenerator(random: Random) {
         random.nextFloat()
       case DoubleType =>
         random.nextDouble()
-      case StringType(minLength, maxLength) =>
-        val length = random.nextInt(maxLength + minLength - 1) - minLength + 1
+      case StringType =>
+        val length = random.nextInt(StringType.MAX_LENGTH - 1) + 1
         val chars = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9')
         val sb = new StringBuilder
         for (_ <- 0 until length) {

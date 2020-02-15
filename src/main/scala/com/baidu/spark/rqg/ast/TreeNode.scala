@@ -64,7 +64,7 @@ case class QuerySession(
   }
 
   def relationsBasedOnAllowedDataType: Array[RelationPrimary] = {
-    availableRelations.filter(_.dataTypes.exists(dt => allowedDataTypes.contains(dt)))
+    availableRelations.filter(_.dataTypes.exists(dt => allowedDataTypes.exists(dt.sameType)))
   }
 }
 

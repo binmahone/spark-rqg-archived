@@ -81,7 +81,7 @@ object DiscrepancySearcher extends Logging {
       case "bigint" => BigIntType
       case "float" => FloatType
       case "double" => DoubleType
-      case "string" => StringType()
+      case "string" => StringType
       case decimalPattern(precision, scale) => DecimalType(precision.toInt, scale.toInt)
     }
   }

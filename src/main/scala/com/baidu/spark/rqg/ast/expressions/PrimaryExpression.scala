@@ -60,11 +60,8 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       choices.filter(_.canGeneratePrimitive)
     } else {
       choices
-    }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
+    }).filter(_.possibleDataTypes(querySession).exists(requiredDataType.acceptsType))
 
-    if (filteredChoices.isEmpty) {
-      throw new Exception()
-    }
     RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
@@ -98,7 +95,7 @@ class Constant(
   }
 
   override def sql: String = requiredDataType match {
-    case _: StringType => s"'${value.toString}'"
+    case StringType => s"'${value.toString}'"
     case _: DecimalType | DoubleType =>
       // there is a weired case:
       // SELECT 7.65894848E9 from table_4 => FAILED
@@ -213,11 +210,13 @@ class FunctionCall(
     } else {
       FunctionCall.supportedFunctions
     }
-    RandomUtils.nextChoice(functions.filter(_.signatures.exists(_.returnType == requiredDataType)))
+    RandomUtils.nextChoice(
+      functions.filter(_.signatures.exists(s => requiredDataType.acceptsType(s.returnType))))
   }
 
   private def generateSignature: Signature = {
-    RandomUtils.nextChoice(func.signatures.filter(_.returnType == requiredDataType).toArray)
+    RandomUtils.nextChoice(
+      func.signatures.filter(s => requiredDataType.acceptsType(s.returnType)).toArray)
   }
 
   private def generateArguments: Seq[BooleanExpression] = {
@@ -236,7 +235,7 @@ class FunctionCall(
 
   override def name: String = s"func_${dataType.typeName}"
 
-  override def dataType: DataType[_] = requiredDataType
+  override def dataType: DataType[_] = signature.returnType
 
   override def isAgg: Boolean = func.isAgg || arguments.exists(_.isAgg)
 
@@ -295,19 +294,20 @@ class ColumnReference(
     } else {
       RandomUtils.nextChoice(
         querySession.availableRelations
-          .filter(_.columns.exists(_.dataType == requiredDataType)))
+          .filter(_.columns.exists(c => requiredDataType.acceptsType(c.dataType))))
     }
   }
 
   private def generateColumn = {
-    RandomUtils.nextChoice(relation.columns.filter(_.dataType == requiredDataType))
+    val columns = relation.columns.filter(c => requiredDataType.acceptsType(c.dataType))
+    RandomUtils.nextChoice(columns)
   }
 
   override def sql: String = s"${relation.name}.${column.name}"
 
   override def name: String = s"${relation.name}_${column.name}"
 
-  override def dataType: DataType[_] = requiredDataType
+  override def dataType: DataType[_] = column.dataType
 
   override def isAgg: Boolean = false
 

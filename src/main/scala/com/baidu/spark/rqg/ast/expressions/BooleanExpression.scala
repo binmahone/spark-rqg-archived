@@ -41,7 +41,7 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       choices.filter(_.canGenerateNested)
     } else {
       choices
-    }).filter(_.possibleDataTypes(querySession).contains(requiredDataType))
+    }).filter(_.possibleDataTypes(querySession).exists(requiredDataType.acceptsType))
     RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
   }
 
