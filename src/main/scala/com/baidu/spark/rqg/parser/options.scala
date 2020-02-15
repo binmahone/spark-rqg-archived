@@ -39,6 +39,7 @@ object LoggingOptions {
  * Options for JDBC Connection
  */
 trait ConnectionOptions[R] {
+  def withDBName(dbName: String): R
   def withRefHost(refHost: String): R
   def withRefPort(refPort: Int): R
   def withTestHost(testHost: String): R
@@ -52,7 +53,13 @@ object ConnectionOptions {
     import builder._
 
     OParser.sequence(
-      note("Reference System Options"),
+      note("Database Name Options"),
+
+      opt[String]("dbName")
+        .action((s, c) => c.withDBName(dbName = s))
+        .text("The name of the database to use. Ex: default"),
+
+      note("\nReference System Options"),
 
       opt[String]("refHost")
         .action((s, c) => c.withRefHost(refHost = s))
@@ -77,6 +84,7 @@ object ConnectionOptions {
   }
 
   object Defaults {
+    val dbName: String = "default"
     val refHost: String = "localhost"
     val refPort: Int = 10000
     val testHost: String = "localhost"

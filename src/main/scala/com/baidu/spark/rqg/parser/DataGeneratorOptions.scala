@@ -11,13 +11,13 @@ case class DataGeneratorOptions(
     // Logging Options
     logLevel: LogLevel.Value = LoggingOptions.Defaults.logLevel,
     // Connection Options
+    dbName: String = ConnectionOptions.Defaults.dbName,
     refHost: String = ConnectionOptions.Defaults.refHost,
     refPort: Int = ConnectionOptions.Defaults.refPort,
     testHost: String = ConnectionOptions.Defaults.testHost,
     testPort: Int = ConnectionOptions.Defaults.testPort,
     // Database Population Options
     randomizationSeed: Int = DataGeneratorOptions.Defaults.randomizationSeed,
-    dbName: String = DataGeneratorOptions.Defaults.dbName,
     tableCount: Int = DataGeneratorOptions.Defaults.tableCount,
     minColumnCount: Int = DataGeneratorOptions.Defaults.minColumnCount,
     maxColumnCount: Int = DataGeneratorOptions.Defaults.maxColumnCount,
@@ -41,6 +41,8 @@ case class DataGeneratorOptions(
   override def withTestHost(testHost: String): DataGeneratorOptions = copy(testHost = testHost)
 
   override def withTestPort(testPort: Int): DataGeneratorOptions = copy(testPort = testPort)
+
+  override def withDBName(dbName: String): DataGeneratorOptions = copy(dbName = dbName)
 }
 
 /**
@@ -86,10 +88,6 @@ object DataGeneratorOptions {
           .action((i, c) => c.copy(randomizationSeed = i))
           .text("the randomization will be initialized with this seed. Using the same seed " +
             "will produce the same results across runs."),
-
-        opt[String]("dbName")
-          .action((s, c) => c.copy(dbName = s))
-          .text("The number of tables to generate."),
 
         opt[Int]("tableCount")
           .action((i, c) => c.copy(tableCount = i))

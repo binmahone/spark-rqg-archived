@@ -1,6 +1,8 @@
 package com.baidu.spark.rqg.ast.expressions
 
-import com.baidu.spark.rqg.{DataType, RandomUtils, StringType}
+import java.text.DecimalFormat
+
+import com.baidu.spark.rqg._
 import com.baidu.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QuerySession, Signature, TreeNode}
 import com.baidu.spark.rqg.ast.functions._
 
@@ -97,6 +99,13 @@ class Constant(
 
   override def sql: String = requiredDataType match {
     case _: StringType => s"'${value.toString}'"
+    case _: DecimalType | DoubleType =>
+      // there is a weired case:
+      // SELECT 7.65894848E9 from table_4 => FAILED
+      // SELECT 7.658948480E9 from table_4 => SUCCESS
+      val df = new DecimalFormat("#")
+      df.setMaximumFractionDigits(38)
+      df.format(value)
     case _ => value.toString
   }
 

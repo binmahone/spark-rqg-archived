@@ -24,12 +24,20 @@ class SparkConnection(connection: Connection, jdbcUrl: String) {
       QueryResult(rows, schema)
     }
   }
+
+  def close(): Unit = {
+    connection.close()
+  }
 }
 
 object SparkConnection {
 
   def openConnection(jdbcUrl: String): SparkConnection = {
     val conn = DriverManager.getConnection(jdbcUrl)
+    val settings = Map("spark.sql.crossJoin.enabled" -> true)
+    settings.foreach { case (key, value) =>
+      conn.prepareStatement(s"SET $key=$value").execute()
+    }
     new SparkConnection(conn, jdbcUrl)
   }
 }

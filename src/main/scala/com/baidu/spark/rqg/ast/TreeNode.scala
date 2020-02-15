@@ -71,7 +71,11 @@ case class QuerySession(
 /**
  * Represents a table from db
  */
-case class Table(name: String, columns: Array[Column])
+case class Table(name: String, columns: Array[Column]) {
+  def sameTable(other: Table): Boolean = {
+    name == other.name && columns.sameElements(other.columns)
+  }
+}
 
 /**
  * Represents a column from db
