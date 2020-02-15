@@ -15,7 +15,8 @@ class QuerySuite extends FunSuite {
       Column("table_1", "column_7",StringType), Column("table_1", "column_8",IntType))),
     Table("table_2", Array(
       Column("table_2", "column_1",FloatType), Column("table_2", "column_2",StringType),
-      Column("table_2", "column_3",BooleanType), Column("table_2", "column_4",BooleanType))),
+      Column("table_2", "column_3",BooleanType), Column("table_2", "column_4",BooleanType),
+      Column("table_5", "column_5",IntType))),
     Table("table_3", Array(
       Column("table_3", "column_1",TinyIntType), Column("table_3", "column_2",TinyIntType),
       Column("table_3", "column_3",BooleanType), Column("table_3", "column_4",StringType),
