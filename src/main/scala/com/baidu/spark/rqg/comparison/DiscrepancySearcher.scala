@@ -20,7 +20,8 @@ object DiscrepancySearcher extends Logging {
     val testTables = describeTables(testConnection, options.dbName)
 
     val commonTables = refTables.filter(t => testTables.exists(_.sameTable(t)))
-    val queries = (0 until options.queryCount).map(_ => Query(QuerySession(commonTables)))
+    val queries = (0 until options.queryCount)
+      .map(_ => Query(QuerySession(availableTables = commonTables)))
 
     val comparator = ResultComparator(tolerance = 0.000000001f)
     try {

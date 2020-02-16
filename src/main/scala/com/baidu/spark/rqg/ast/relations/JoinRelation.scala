@@ -1,7 +1,8 @@
 package com.baidu.spark.rqg.ast.relations
 
-import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.{RQGConfig, RandomUtils}
 import com.baidu.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import com.baidu.spark.rqg.ast.joins._
 
 /**
  * joinRelation
@@ -15,9 +16,8 @@ class JoinRelation(
     val querySession: QuerySession,
     val parent: Option[TreeNode]) extends TreeNode {
 
-  private val joinTypes = Array("INNER", "CROSS", "LEFT OUTER", "RIGHT OUTER", "FULL OUTER")
-
-  val joinType: String = RandomUtils.nextChoice(joinTypes)
+  val joinType: String =
+    RandomUtils.choice(joinTypes, querySession.rqgConfig.getWeight(RQGConfig.JOIN_TYPE)).name
   val relationPrimary: RelationPrimary = generateRelationPrimary
   val joinCriteria: JoinCriteria = generateJoinCriteria
 
@@ -33,6 +33,8 @@ class JoinRelation(
     querySession.joiningRelation = None
     joinCriteria
   }
+
+  private def joinTypes = Array(INNER, CROSS, LEFT, RIGHT, FULL)
   override def sql: String = s"$joinType JOIN ${relationPrimary.sql} ${joinCriteria.sql}"
 }
 

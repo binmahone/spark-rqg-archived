@@ -44,6 +44,23 @@ object RandomUtils extends Logging {
     choices(getRandom.nextInt(choices.length))
   }
 
+  def choice[T <: WeightedChoice](choices: Array[T], weights: List[WeightEntry]): T = {
+    // First find entry exists both in choices and weights
+    val filteredWeights =
+      weights.filter(w => choices.exists(_.weightName.toLowerCase == w.key.toLowerCase))
+    val totalWeight = filteredWeights.map(_.value).sum
+    var predicate = getRandom.nextDouble() * totalWeight
+    for (entry <- filteredWeights) {
+      if (entry.value > 0 && entry.value > predicate) {
+        return choices.find(_.weightName.toLowerCase == entry.key.toLowerCase).get
+      }
+      predicate -= entry.value
+    }
+    throw new IllegalArgumentException("Couldn't choose a weighted choice. " +
+      s"choices: [${choices.map(_.weightName).mkString(", ")}], " +
+      s"config weights: [${weights.mkString(",")}]")
+  }
+
   def choice(inclusiveStart: Int, inclusiveEnd: Int): Int = {
     require(inclusiveEnd >= inclusiveStart)
     getRandom.nextInt(inclusiveEnd - inclusiveStart + 1) + inclusiveStart
@@ -53,5 +70,11 @@ object RandomUtils extends Logging {
 
   def nextBoolean(): Boolean = getRandom.nextBoolean()
 
+  def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
+
   def nextConstant[T](dataType: DataType[T]): T = getValueGenerator.generateValue(dataType)
+}
+
+trait WeightedChoice {
+  def weightName: String
 }

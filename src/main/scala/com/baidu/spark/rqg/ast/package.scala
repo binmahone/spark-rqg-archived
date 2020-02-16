@@ -7,6 +7,8 @@ package object ast {
 
   case class Signature(returnType: DataType[_], inputTypes: Seq[DataType[_]])
 
+  case class JoinType(name: String, weightName: String) extends WeightedChoice
+
   object operators {
     val AND = Operator("and", "AND")
     val OR = Operator("or", "OR")
@@ -44,5 +46,13 @@ package object ast {
         Signature(DecimalType(), Seq(DecimalType())),
         Signature(StringType, Seq(StringType))), isAgg = true)
     val ABS = Function("abs", Seq(Signature(IntType, Seq(IntType))), isAgg = false)
+  }
+
+  object joins {
+    val INNER = JoinType("INNER", "INNER")
+    val CROSS = JoinType("CROSS", "CROSS")
+    val LEFT = JoinType("LEFT OUTER", "LEFT")
+    val RIGHT = JoinType("RIGHT OUTER", "RIGHT")
+    val FULL = JoinType("FULL OUTER", "FULL_OUTER")
   }
 }

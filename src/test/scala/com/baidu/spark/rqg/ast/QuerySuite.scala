@@ -33,7 +33,7 @@ class QuerySuite extends FunSuite {
       Column("table_5", "column_5",IntType))))
 
   // Use function rather than val in order to generate new querySession every time
-  private def querySession = QuerySession(tables)
+  private def querySession = QuerySession(availableTables = tables)
 
   private val queryValidator = new QueryValidator(querySession)
 

@@ -1,9 +1,10 @@
 package com.baidu.spark.rqg
 
-trait DataType[T] {
+trait DataType[T] extends WeightedChoice {
   def typeName: String
   def sameType(other: DataType[_]): Boolean = this == other
   def acceptsType(other: DataType[_]): Boolean = sameType(other)
+  override def weightName: String = typeName
 }
 
 trait NumericType[T] extends DataType[T] {

@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast.relations
 
-import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.{RQGConfig, RandomUtils}
 import com.baidu.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
 
 /**
@@ -25,7 +25,8 @@ class Relation(
   }
 
   private def generateJoinRelationSeq: Seq[JoinRelation] = {
-    (0 until RandomUtils.choice(0, 2)).map { _ =>
+    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.JOIN_COUNT)
+    (0 until RandomUtils.choice(min, max)).map { _ =>
       val joinRelation = JoinRelation(querySession, Some(this))
       querySession.availableRelations =
         querySession.availableRelations :+ joinRelation.relationPrimary

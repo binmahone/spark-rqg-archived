@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.{RQGConfig, RandomUtils}
 import com.baidu.spark.rqg.ast.clauses._
 
 /**
@@ -30,7 +30,7 @@ class Query(
   }
 
   private def generateWhereClauseOption: Option[WhereClause] = {
-    if (RandomUtils.nextBoolean()) {
+    if (RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.WHERE))) {
       Some(WhereClause(querySession, Some(this)))
     } else {
       None
@@ -38,7 +38,8 @@ class Query(
   }
 
   private def generateAggregationClauseOption: Option[AggregationClause] = {
-    if (selectClause.namedExpressionSeq.exists(_.isAgg) || RandomUtils.nextBoolean()) {
+    if (selectClause.namedExpressionSeq.exists(_.isAgg) ||
+        RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.GROUP_BY))) {
       Some(AggregationClause(querySession, Some(this)))
     } else {
       None

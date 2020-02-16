@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast.relations
 
-import com.baidu.spark.rqg.{BooleanType, DataType}
+import com.baidu.spark.rqg.{BooleanType, DataType, RQGConfig, RandomUtils}
 import com.baidu.spark.rqg.ast.expressions.BooleanExpression
 import com.baidu.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
 
@@ -30,14 +30,14 @@ class JoinCriteria(
   private def generateBooleanExpression: BooleanExpression = {
     val prevAllowedDataTypes = querySession.allowedDataTypes
     querySession.requiredRelationalExpressionCount = 1
-    querySession.allowedNestedExpressionCount = 5
+    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+    // we always need at least one nested for join criteria
+    querySession.allowedNestedExpressionCount = RandomUtils.choice(math.max(min, 1), max)
     val booleanExpression = BooleanExpression(querySession, Some(this), BooleanType, isLast = true)
     querySession.allowedDataTypes = prevAllowedDataTypes
-    if (querySession.requiredRelationalExpressionCount > 0) {
-      throw new Exception()
-    } else {
-      querySession.requiredRelationalExpressionCount = 0
-    }
+    assert(querySession.requiredRelationalExpressionCount <= 0)
+    // restore back
+    querySession.requiredRelationalExpressionCount = 0
     booleanExpression
   }
 

@@ -1,6 +1,6 @@
 package com.baidu.spark.rqg.ast.clauses
 
-import com.baidu.spark.rqg.RandomUtils
+import com.baidu.spark.rqg.{RQGConfig, RandomUtils}
 import com.baidu.spark.rqg.ast.expressions.NamedExpression
 import com.baidu.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNodeGenerator}
 
@@ -15,19 +15,26 @@ class SelectClause(
     val querySession: QuerySession,
     val parent: Option[TreeNode]) extends TreeNode {
 
-  val setQuantifier: Option[String] = if (RandomUtils.nextBoolean()) Some("DISTINCT") else None
+  val setQuantifier: Option[String] =
+    if (RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
+      Some("DISTINCT")
+    } else {
+      None
+    }
   val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
-    (0 until RandomUtils.choice(1, 5))
+    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
+    (0 until RandomUtils.choice(min, max))
       .map { _ =>
         val useAgg = RandomUtils.nextBoolean()
         if (useAgg) {
           querySession.aggPreference = AggPreference.PREFER
         }
-        val dataType = RandomUtils.nextChoice(querySession.allowedDataTypes)
-        val nestedCount = RandomUtils.choice(0, 5)
-        querySession.allowedNestedExpressionCount = nestedCount
+        val dataType = RandomUtils.choice(
+          querySession.allowedDataTypes, querySession.rqgConfig.getWeight(RQGConfig.DATA_TYPE))
+        val (min, max) = querySession.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+        querySession.allowedNestedExpressionCount = RandomUtils.choice(min, max)
         NamedExpression(querySession, Some(this), dataType, isLast = true)
       }
   }

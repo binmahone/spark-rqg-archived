@@ -1,7 +1,8 @@
 package com.baidu.spark.rqg.ast
 
-import com.baidu.spark.rqg.DataType
+import com.baidu.spark.rqg.{DataType, RQGConfig}
 import com.baidu.spark.rqg.ast.relations.RelationPrimary
+import com.typesafe.config.ConfigFactory
 
 /**
  * A TreeNode represents a part of a Query.
@@ -19,6 +20,7 @@ trait TreeNode {
  * 3. allowed data types when generating an expression
  */
 case class QuerySession(
+    var rqgConfig: RQGConfig = new RQGConfig(ConfigFactory.empty()),
     var availableTables: Array[Table] = Array.empty,
     var availableRelations: Array[RelationPrimary] = Array.empty,
     var joiningRelation: Option[RelationPrimary] = None,

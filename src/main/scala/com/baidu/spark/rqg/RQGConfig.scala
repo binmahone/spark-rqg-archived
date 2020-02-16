@@ -5,7 +5,7 @@ import scala.util.Random
 
 import com.typesafe.config.{Config, ConfigFactory}
 
-class RQGConfig(config: Config, random: Random = new Random()) {
+class RQGConfig(config: Config) {
 
   def getBound(entry: RQGConfigEntry): (Int, Int) = {
     if (config.hasPath(entry.key)) {
@@ -60,7 +60,7 @@ object RQGConfig {
   val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 2))
   val SELECT_ITEM_COUNT = RQGConfigEntry(s"$BOUNDS.SELECT_ITEM_COUNT", (1, 5))
   val WITH_TABLE_COUNT = RQGConfigEntry(s"$BOUNDS.WITH_TABLE_COUNT", (1, 3))
-  val TABLE_COUNT = RQGConfigEntry(s"$BOUNDS.TABLE_COUNT", (1, 2))
+  val JOIN_COUNT = RQGConfigEntry(s"$BOUNDS.JOIN_COUNT", (0, 2))
   val ANALYTIC_LEAD_LAG_OFFSET = RQGConfigEntry(s"$BOUNDS.ANALYTIC_LEAD_LAG_OFFSET", (1, 100))
   val ANALYTIC_WINDOW_OFFSET = RQGConfigEntry(s"$BOUNDS.ANALYTIC_WINDOW_OFFSET", (1, 100))
 
@@ -68,10 +68,12 @@ object RQGConfig {
   private val defaultJoinWeights =
     WeightEntry("CROSS", 0.01d) :: WeightEntry("FULL_OUTER", 0.04d) ::
       WeightEntry("INNER", 0.7d) :: WeightEntry("LEFT", 0.2d) :: WeightEntry("RIGHT", 0.05d) :: Nil
-  val JOIN = RQGConfigEntry(s"$WEIGHTS.JOIN", defaultJoinWeights)
+  val JOIN_TYPE = RQGConfigEntry(s"$WEIGHTS.JOIN_TYPE", defaultJoinWeights)
 
   private val defaultDataTypeWeights =
-    WeightEntry("Int", 0.1d) :: WeightEntry("Double", 0.3d) :: WeightEntry("Char", 0.1d) :: Nil
+    WeightEntry("Int", 10d) :: WeightEntry("TinyInt", 2d) :: WeightEntry("SmallInt", 2d) ::
+    WeightEntry("BigInt", 2d) :: WeightEntry("Float", 2d) :: WeightEntry("Double", 5d) ::
+    WeightEntry("Boolean", 1d) :: WeightEntry("Decimal", 10d) :: WeightEntry("String", 2d) :: Nil
   val DATA_TYPE = RQGConfigEntry(s"$WEIGHTS.DATA_TYPE", defaultDataTypeWeights)
 
   // Probabilities
@@ -100,8 +102,8 @@ object RQGConfig {
   val UNBOUNDED_WINDOW = RQGConfigEntry(s"$FLAGS.UNBOUNDED_WINDOW", true)
   val RANK_FUNC = RQGConfigEntry(s"$FLAGS.RANK_FUNC", true)
 
-  def load(path: String, random: Random = new Random()): RQGConfig = {
-    new RQGConfig(ConfigFactory.load(path), random)
+  def load(path: String): RQGConfig = {
+    new RQGConfig(ConfigFactory.load(path))
   }
 }
 
