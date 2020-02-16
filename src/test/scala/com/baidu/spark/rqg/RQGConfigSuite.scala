@@ -7,7 +7,7 @@ class RQGConfigSuite extends FunSuite {
 
   test("basic") {
     val configDefault = RQGConfig.load("conf/rqg-defaults.conf")
-    assert(configDefault.getBound(JOIN_COUNT) == (1, 2))
+    assert(configDefault.getBound(JOIN_COUNT) == (0, 2))
     assert(configDefault.getProbability(FROM) == 1.0)
     assert(configDefault.getFlag(ONLY_SELECT_ITEM))
     assert(configDefault.getWeight(JOIN_TYPE).toSet ==

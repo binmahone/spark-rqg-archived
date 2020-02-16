@@ -21,7 +21,10 @@ object DiscrepancySearcher extends Logging {
 
     val commonTables = refTables.filter(t => testTables.exists(_.sameTable(t)))
     val queries = (0 until options.queryCount)
-      .map(_ => Query(QuerySession(availableTables = commonTables)))
+      .map(_ => Query(
+        QuerySession(
+          rqgConfig = RQGConfig.load(options.configFile),
+          availableTables = commonTables)))
 
     val comparator = ResultComparator(tolerance = 0.000000001f)
     try {

@@ -102,8 +102,12 @@ object RQGConfig {
   val UNBOUNDED_WINDOW = RQGConfigEntry(s"$FLAGS.UNBOUNDED_WINDOW", true)
   val RANK_FUNC = RQGConfigEntry(s"$FLAGS.RANK_FUNC", true)
 
-  def load(path: String): RQGConfig = {
-    new RQGConfig(ConfigFactory.load(path))
+  def load(path: String = ""): RQGConfig = {
+    if (path.isEmpty) {
+      new RQGConfig(ConfigFactory.empty())
+    } else {
+      new RQGConfig(ConfigFactory.load(path))
+    }
   }
 }
 

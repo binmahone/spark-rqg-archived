@@ -20,7 +20,7 @@ trait TreeNode {
  * 3. allowed data types when generating an expression
  */
 case class QuerySession(
-    var rqgConfig: RQGConfig = new RQGConfig(ConfigFactory.empty()),
+    var rqgConfig: RQGConfig = RQGConfig.load(),
     var availableTables: Array[Table] = Array.empty,
     var availableRelations: Array[RelationPrimary] = Array.empty,
     var joiningRelation: Option[RelationPrimary] = None,

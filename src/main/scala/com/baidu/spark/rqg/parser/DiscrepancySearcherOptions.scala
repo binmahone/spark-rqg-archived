@@ -16,7 +16,8 @@ case class DiscrepancySearcherOptions(
     randomizationSeed: Int = DiscrepancySearcherOptions.Defaults.randomizationSeed,
     stopOnMismatch: Boolean = DiscrepancySearcherOptions.Defaults.stopOnMismatch,
     stopOnCrash: Boolean = DiscrepancySearcherOptions.Defaults.stopOnCrash,
-    queryCount: Int = DiscrepancySearcherOptions.Defaults.queryCount)
+    queryCount: Int = DiscrepancySearcherOptions.Defaults.queryCount,
+    configFile: String = DiscrepancySearcherOptions.Defaults.configFile)
   extends LoggingOptions[DiscrepancySearcherOptions]
   with ConnectionOptions[DiscrepancySearcherOptions] {
 
@@ -49,8 +50,8 @@ object DiscrepancySearcherOptions {
     val stopOnMismatch = false
     val stopOnCrash = false
     val queryCount = 100
+    val configFile = "conf/rqg-defaults.json"
   }
-
 
   def parse(args: Array[String]): DiscrepancySearcherOptions = {
 
@@ -74,6 +75,10 @@ object DiscrepancySearcherOptions {
         opt[Int]("queryCount")
           .action((i, c) => c.copy(queryCount = i))
           .text("The number of queries to generate."),
+
+        opt[String]("configFile")
+          .action((s, c) => c.copy(configFile = s))
+          .text("Path to a configuration file with all tested systems."),
 
         note("\nOther Options"),
 
