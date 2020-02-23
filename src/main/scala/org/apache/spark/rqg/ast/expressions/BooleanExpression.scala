@@ -1,6 +1,6 @@
 package org.apache.spark.rqg.ast.expressions
 
-import org.apache.spark.rqg.{BooleanType, DataType, RandomUtils, Utils}
+import org.apache.spark.rqg.{BooleanType, DataType, RandomUtils}
 import org.apache.spark.rqg.ast._
 import org.apache.spark.rqg.ast.operators._
 
@@ -153,7 +153,7 @@ class LogicalBinary(
 
   override def columns: Seq[ColumnReference] = left.columns ++ right.columns
 
-  override def nonAggColumns: Seq[ColumnReference] = left.nonAggColumns ++ left.nonAggColumns
+  override def nonAggColumns: Seq[ColumnReference] = left.nonAggColumns ++ right.nonAggColumns
 }
 
 /**
