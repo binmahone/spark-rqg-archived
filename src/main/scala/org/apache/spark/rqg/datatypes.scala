@@ -77,7 +77,9 @@ case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalTy
   val bound = math.pow(10, precision).toLong
   val fractional = math.pow(10, scale)
 
-  override def typeName: String = s"decimal"
+  override def typeName: String = s"decimal($precision,$scale)"
+
+  override def weightName: String = "decimal"
 
   override def sameType(other: DataType[_]): Boolean = other.isInstanceOf[DecimalType]
 }

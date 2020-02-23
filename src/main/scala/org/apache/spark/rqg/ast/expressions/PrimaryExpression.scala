@@ -233,7 +233,10 @@ class FunctionCall(
 
   override def sql: String = s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
 
-  override def name: String = s"func_${dataType.typeName}"
+  override def name: String = dataType match {
+    case _: DecimalType => "func_decimal"
+    case _ => s"func_${dataType.typeName}"
+  }
 
   override def dataType: DataType[_] = signature.returnType
 
