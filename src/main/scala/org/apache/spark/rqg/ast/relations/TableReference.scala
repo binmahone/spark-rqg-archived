@@ -11,7 +11,7 @@ class TableReference(
     val parent: Option[TreeNode]) extends RelationPrimary {
 
   val table: Table = RandomUtils.nextChoice(querySession.availableTables)
-  val alias = Some(querySession.nextAlias(table.name))
+  val alias = Some(querySession.nextAlias("table"))
 
   override def sql: String = s"${table.name} ${alias.map("AS " + _).getOrElse("")}"
 

@@ -16,7 +16,7 @@ class NamedExpression(
 
   val expression: BooleanExpression = generateExpression
 
-  val alias = Some(querySession.nextAlias(expression.name))
+  val alias = Some(querySession.nextAlias("expr"))
 
   private def generateExpression: BooleanExpression = {
     BooleanExpression(querySession, parent, requiredDataType, isLast)
