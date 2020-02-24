@@ -6,6 +6,17 @@ organization := "org.apache"
 
 scalaVersion := "2.12.10"
 
+val runQueryGenerator = inputKey[Unit]("runs QueryGernator")
+
+runQueryGenerator := {
+  import complete.DefaultParsers._
+  val args = spaceDelimited("[args]").parsed
+  val scalaRun = (runner in run).value
+  val classpath = (fullClasspath in Compile).value
+  scalaRun.run("org.apache.spark.rqg.comparison.QueryGenerator", classpath.map(_.data), args,
+    streams.value.log)
+}
+
 val runDataGenerator = inputKey[Unit]("runs DataGernator")
 
 runDataGenerator := {

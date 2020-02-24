@@ -2,42 +2,6 @@ package org.apache.spark.rqg.parser
 
 import scopt.OParser
 
-/**
- * Options for logging
- */
-trait LoggingOptions[R] {
-  import LoggingOptions._
-  def withLogLevel(logLevel: LogLevel.Value): R
-}
-
-object LoggingOptions {
-  def loggingParser[R <: LoggingOptions[R]]: OParser[_, R] = {
-    val builder = OParser.builder[R]
-    import builder._
-    OParser.sequence(
-      note("Logging Options"),
-      opt[LogLevel.Value]("logLevel")
-        .action((v, c) => c.withLogLevel(logLevel = v))
-        .text("The log level to use. choices: DEBUG, INFO, WARN, ERROR"),
-      note("")
-    )
-  }
-
-  object Defaults {
-    val logLevel: LogLevel.Value = LogLevel.INFO
-  }
-
-  object LogLevel extends Enumeration {
-    type LogLevel = Value
-    val DEBUG, INFO, WARN, ERROR = Value
-  }
-
-  implicit val logLevelRead: scopt.Read[LogLevel.Value] = scopt.Read.reads(LogLevel withName)
-}
-
-/**
- * Options for Database
- */
 trait DatabaseOptions[R] {
   def withDatabaseName(dbName: String): R
 }

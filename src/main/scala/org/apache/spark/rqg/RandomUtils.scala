@@ -34,7 +34,7 @@ object RandomUtils extends Logging {
       this.random = null
       this.valueGenerator = null
     } else {
-      logWarning(s"RandomUtils is already inited. new seed: $randomSeed doesn't take effect")
+      logInfo(s"RandomUtils is already inited. new seed: $randomSeed doesn't take effect")
     }
   }
 
