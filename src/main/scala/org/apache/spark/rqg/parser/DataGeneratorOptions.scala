@@ -1,21 +1,22 @@
 package org.apache.spark.rqg.parser
 
 import org.apache.spark.rqg.parser.DataGeneratorOptions.DataSources
-import org.apache.spark.rqg.parser.LoggingOptions.LogLevel
 import scopt.OParser
 
 /**
  * Options for the DataGenerator Application
  */
 case class DataGeneratorOptions(
-    // Logging Options
-    logLevel: LogLevel.Value = LoggingOptions.Defaults.logLevel,
-    // Connection Options
-    dbName: String = ConnectionOptions.Defaults.dbName,
-    refHost: String = ConnectionOptions.Defaults.refHost,
-    refPort: Int = ConnectionOptions.Defaults.refPort,
-    testHost: String = ConnectionOptions.Defaults.testHost,
-    testPort: Int = ConnectionOptions.Defaults.testPort,
+    // Database Options
+    dbName: String = DatabaseOptions.Defaults.dbName,
+    // Spark Runner Options
+    timeout: Int = SparkSubmitOptions.Defaults.timeout,
+    refSparkVersion: String = SparkSubmitOptions.Defaults.refSparVersion,
+    refSparkHome: Option[String] = SparkSubmitOptions.Defaults.refSparkHome,
+    refMaster: String = SparkSubmitOptions.Defaults.refMaster,
+    testSparkVersion: String = SparkSubmitOptions.Defaults.testSparkVersion,
+    testSparkHome: Option[String] = SparkSubmitOptions.Defaults.testSparkHome,
+    testMaster: String = SparkSubmitOptions.Defaults.refMaster,
     // Database Population Options
     randomizationSeed: Int = DataGeneratorOptions.Defaults.randomizationSeed,
     tableCount: Int = DataGeneratorOptions.Defaults.tableCount,
@@ -24,25 +25,36 @@ case class DataGeneratorOptions(
     minRowCount: Int = DataGeneratorOptions.Defaults.minRowCount,
     maxRowCount: Int = DataGeneratorOptions.Defaults.maxRowCount,
     dataSources: Seq[DataSources.Value] = DataGeneratorOptions.Defaults.dataSources)
-  extends LoggingOptions[DataGeneratorOptions]
-  with ConnectionOptions[DataGeneratorOptions] {
+  extends DatabaseOptions[DataGeneratorOptions]
+  with SparkSubmitOptions[DataGeneratorOptions] {
 
   def validateOptions(): Unit = {
     assert(tableCount > 0, "tableCount must be positive")
   }
 
-  override def withLogLevel(logLevel: LoggingOptions.LogLevel.Value): DataGeneratorOptions =
-    copy(logLevel = logLevel)
+  override def withDatabaseName(dbName: String): DataGeneratorOptions =
+    copy(dbName = dbName)
 
-  override def withRefHost(refHost: String): DataGeneratorOptions = copy(refHost = refHost)
+  override def withTimeout(timeout: Int): DataGeneratorOptions =
+    copy(timeout = timeout)
 
-  override def withRefPort(refPort: Int): DataGeneratorOptions = copy(refPort = refPort)
+  override def withRefVersion(refVersion: String): DataGeneratorOptions =
+    copy(refSparkVersion = refVersion)
 
-  override def withTestHost(testHost: String): DataGeneratorOptions = copy(testHost = testHost)
+  override def withRefSparkHome(refSparkHome: String): DataGeneratorOptions =
+    copy(refSparkHome = Some(refSparkHome))
 
-  override def withTestPort(testPort: Int): DataGeneratorOptions = copy(testPort = testPort)
+  override def withRefMaster(master: String): DataGeneratorOptions =
+    copy(refMaster = master)
 
-  override def withDBName(dbName: String): DataGeneratorOptions = copy(dbName = dbName)
+  override def withTestVersion(testVersion: String): DataGeneratorOptions =
+    copy(testSparkVersion = testVersion)
+
+  override def withTestSparkHome(testSparkHome: String): DataGeneratorOptions =
+    copy(testSparkHome = Some(testSparkHome))
+
+  override def withTestMaster(master: String): DataGeneratorOptions =
+    copy(testMaster = master)
 }
 
 /**
@@ -78,9 +90,9 @@ object DataGeneratorOptions {
       OParser.sequence(
         programName("DataGenerator"),
 
-        LoggingOptions.loggingParser,
+        DatabaseOptions.databaseParser,
 
-        ConnectionOptions.connectionParser,
+        SparkSubmitOptions.sparkSubmitParser,
 
         note("Database Population Options"),
 

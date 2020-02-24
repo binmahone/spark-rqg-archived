@@ -1,6 +1,9 @@
 package org.apache.spark.rqg
 
+import org.apache.spark.sql.{types => sparktypes}
+
 trait DataType[T] extends WeightedChoice {
+  def sparkType: sparktypes.DataType
   def typeName: String
   def sameType(other: DataType[_]): Boolean = this == other
   def acceptsType(other: DataType[_]): Boolean = sameType(other)
@@ -43,35 +46,51 @@ object DataType {
 }
 
 case object BooleanType extends DataType[Boolean] {
-  def typeName = "boolean"
+  override def typeName = "boolean"
+
+  override def sparkType: sparktypes.DataType = sparktypes.BooleanType
 }
 case object IntType extends IntegralType[Int] {
-  def typeName = "int"
+  override def typeName = "int"
+
+  override def sparkType: sparktypes.DataType = sparktypes.IntegerType
 }
 case object TinyIntType extends IntegralType[Byte] {
-  def typeName = "tinyint"
+  override def typeName = "tinyint"
+
+  override def sparkType: sparktypes.DataType = sparktypes.ByteType
 }
 case object SmallIntType extends IntegralType[Short] {
-  def typeName = "smallint"
+  override def typeName = "smallint"
+
+  override def sparkType: sparktypes.DataType = sparktypes.ShortType
 }
 case object BigIntType extends IntegralType[Long] {
-  def typeName = "bigint"
+  override def typeName = "bigint"
+
+  override def sparkType: sparktypes.DataType = sparktypes.LongType
 }
 
 case object FloatType extends FractionalType[Float] {
-  def typeName = "float"
+  override def typeName = "float"
+
+  override def sparkType: sparktypes.DataType = sparktypes.FloatType
 }
 case object DoubleType extends FractionalType[Double] {
-  def typeName = "double"
+  override def typeName = "double"
+
+  override def sparkType: sparktypes.DataType = sparktypes.DoubleType
 }
 
 case object StringType extends DataType[String] {
   val MAX_LENGTH = 32
 
-  def typeName = "string"
+  override def typeName = "string"
+
+  override def sparkType: sparktypes.DataType = sparktypes.StringType
 }
 
-case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalType[Double] {
+case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalType[BigDecimal] {
   require(scale <= precision && precision <= DecimalType.MAX_PRECISION)
 
   val bound = math.pow(10, precision).toLong
@@ -82,6 +101,8 @@ case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalTy
   override def weightName: String = "decimal"
 
   override def sameType(other: DataType[_]): Boolean = other.isInstanceOf[DecimalType]
+
+  override def sparkType: sparktypes.DataType = sparktypes.DecimalType(precision, scale)
 }
 
 object DecimalType {

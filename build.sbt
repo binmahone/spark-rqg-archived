@@ -2,9 +2,20 @@ name := "spark-random-query-generator"
 
 version := "0.0.1-SNAPSHOT"
 
-organization := "com.baidu"
+organization := "org.apache"
 
 scalaVersion := "2.12.10"
+
+val runDataGenerator = inputKey[Unit]("runs DataGernator")
+
+runDataGenerator := {
+  import complete.DefaultParsers._
+  val args = spaceDelimited("[args]").parsed
+  val scalaRun = (runner in run).value
+  val classpath = (fullClasspath in Compile).value
+  scalaRun.run("org.apache.spark.rqg.comparison.DataGenerator", classpath.map(_.data), args,
+    streams.value.log)
+}
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % "3.0.0-preview2",

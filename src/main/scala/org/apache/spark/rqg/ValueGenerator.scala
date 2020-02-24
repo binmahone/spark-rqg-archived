@@ -29,7 +29,7 @@ class ValueGenerator(random: Random) {
         }
         sb.toString
       case d: DecimalType =>
-        (random.nextLong() % d.bound) / d.fractional
+        BigDecimal((random.nextLong() % d.bound) / d.fractional)
       case x =>
         // TODO: Date, Timestamp, Char, Varchar, Binary, Interval
         throw new NotImplementedError(s"data type $x not supported yet")

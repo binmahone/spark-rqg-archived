@@ -1,0 +1,4 @@
+#!/bin/bash
+
+ARGS="runDataGenerator $@"
+sbt "$ARGS"

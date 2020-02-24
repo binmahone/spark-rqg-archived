@@ -9,7 +9,10 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rqg.runner.RQGQueryRunnerApp.QueryOutput
 
 class SparkSubmitQueryRunner(
-    version: String, sparkHomeOpt: Option[String] = None, master: String)
+    version: String,
+    sparkHomeOpt: Option[String] = None,
+    master: String = "local[*]",
+    timeout: Int = 0)
   extends SparkQueryRunner with Logging {
 
   private val sparkTestingDir = new File("/tmp/test-spark")
@@ -42,7 +45,7 @@ class SparkSubmitQueryRunner(
       jarFile.toString,
       queryFile.getName,
       resultFile.toString)
-    SparkSubmitUtils.runSparkSubmit(args, sparkHome.getCanonicalPath)
+    SparkSubmitUtils.runSparkSubmit(args, sparkHome.getCanonicalPath, timeout)
 
     val is = resultFile.getFileSystem(new Configuration()).open(resultFile)
 
