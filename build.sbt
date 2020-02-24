@@ -1,10 +1,14 @@
 name := "spark-random-query-generator"
 
+// logLevel := Level.Debug
+
 version := "0.0.1-SNAPSHOT"
 
 organization := "org.apache"
 
 scalaVersion := "2.12.10"
+
+enablePlugins(PackPlugin)
 
 val runQueryGenerator = inputKey[Unit]("runs QueryGernator")
 
