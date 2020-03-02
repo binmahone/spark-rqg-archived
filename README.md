@@ -19,11 +19,36 @@ git clone https://github.com/LinhongLiu/spark-rqg.git
 
 ## Run QueryGenerator to generate queries and run against 2 Spark versions
 ```
-./bin/runQueryGenerator --randomizationSeed=0 \
+./bin/runQueryGenerator --randomizationSeed=10 \
   --queryCount=10 \
   --testSparkVersion=3.0.0-preview2 --testMaster="local[2]"\
   --refSparkVersion=3.0.0-preview --refMaster=yarn-cluster
 # Run ./bin/runQueryGenerator --help for more information
+```
+
+```
+Output:
+Comparing queries 0 to 9
+Comparing query 0: SELECT DISTINCT ((table_alias_0.column_51) + (table_alias_0.column_70))  AS expr_alias_1, ((first((table_alias_0.column_88) )) - (table_alias_0.column_88))  AS expr_alias_2 FROM table_1 AS table_alias_0    GROUP BY expr_alias_1, table_alias_0.column_88   LIMIT 68
+PASS.
+Comparing query 1: SELECT DISTINCT (1187760176)  AS expr_alias_2, (table_alias_1.column_40)  AS expr_alias_3, (- (table_alias_0.column_53))  AS expr_alias_4, ((sum((0.98129654) )) + (table_alias_0.column_41))  AS expr_alias_5 FROM table_10 AS table_alias_0 INNER JOIN table_5 AS table_alias_1 ON (((table_alias_0.column_130) >= (table_alias_1.column_99)) ) OR ((false) ) WHERE ((- (table_alias_0.column_63)) > (table_alias_0.column_101))   GROUP BY expr_alias_2, expr_alias_3, expr_alias_4, table_alias_0.column_41
+PASS.
+Comparing query 2: SELECT DISTINCT ((table_alias_0.column_53) - (table_alias_0.column_3))  AS expr_alias_1, ((first((table_alias_0.column_88) )) + (994224767))  AS expr_alias_2, (-6302721630776663050)  AS expr_alias_3, (((446906847) + (-767901457)) + (table_alias_0.column_77))  AS expr_alias_4 FROM table_1 AS table_alias_0    GROUP BY expr_alias_1, expr_alias_3, expr_alias_4
+PASS.
+Comparing query 3: SELECT DISTINCT (89)  AS expr_alias_2, (7798260648579902401)  AS expr_alias_3, (sum((table_alias_1.column_35) ))  AS expr_alias_4, (+ (+ (2469894411)))  AS expr_alias_5, (first(('UlCz62ARKJCi') ))  AS expr_alias_6 FROM table_8 AS table_alias_0 INNER JOIN table_4 AS table_alias_1 ON ((table_alias_0.column_6) >= (table_alias_1.column_123))    GROUP BY expr_alias_2, expr_alias_3, expr_alias_5
+PASS.
+Comparing query 4: SELECT DISTINCT (-7290215689)  AS expr_alias_2, (sum((table_alias_1.column_70) ))  AS expr_alias_3, (+ (first((table_alias_1.column_73) )))  AS expr_alias_4, (abs((-51191232) ))  AS expr_alias_5 FROM table_10 AS table_alias_0 LEFT OUTER JOIN table_7 AS table_alias_1 ON (((table_alias_0.column_111) >= (table_alias_1.column_89)) ) OR ((table_alias_0.column_81) ) WHERE (table_alias_0.column_146)   GROUP BY expr_alias_2, expr_alias_5   LIMIT 55
+PASS.
+Comparing query 5: SELECT DISTINCT ((table_alias_0.column_94) - (7417411916))  AS expr_alias_1, (+ (count((1926663866) )))  AS expr_alias_2, (- (count((table_alias_0.column_72) )))  AS expr_alias_3 FROM table_6 AS table_alias_0    GROUP BY expr_alias_1   LIMIT 0
+PASS.
+Comparing query 6: SELECT DISTINCT (- (first((table_alias_1.column_90) )))  AS expr_alias_3, (~ ((6713469257012530263) - (table_alias_2.column_131)))  AS expr_alias_4 FROM table_6 AS table_alias_0 RIGHT OUTER JOIN table_2 AS table_alias_1 ON ((table_alias_0.column_118) >= (table_alias_1.column_54))  INNER JOIN table_6 AS table_alias_2 ON NOT (((table_alias_1.column_73) != (table_alias_2.column_65)) )   GROUP BY expr_alias_4
+PASS.
+Comparing query 7: SELECT DISTINCT (table_alias_0.column_162)  AS expr_alias_1, (- (sum((table_alias_0.column_156) )))  AS expr_alias_2 FROM table_5 AS table_alias_0    GROUP BY expr_alias_1   LIMIT 90
+PASS.
+Comparing query 8: SELECT DISTINCT (table_alias_0.column_59)  AS expr_alias_2, (1195653742)  AS expr_alias_3, (first((-1969465414) ))  AS expr_alias_4 FROM table_6 AS table_alias_0 LEFT OUTER JOIN table_9 AS table_alias_1 ON (((table_alias_0.column_75) < (table_alias_1.column_145)) ) AND ((false) )   GROUP BY expr_alias_2, expr_alias_3   LIMIT 46
+PASS.
+Comparing query 9: SELECT DISTINCT (count((table_alias_0.column_183) ))  AS expr_alias_1, ((6641165158) + (-4338456829))  AS expr_alias_2, (.08464761633596518)  AS expr_alias_3, (table_alias_0.column_118)  AS expr_alias_4 FROM table_10 AS table_alias_0    GROUP BY expr_alias_2, expr_alias_3, expr_alias_4   LIMIT 17
+PASS.
 ```
 
 ## Run queries on a customized spark 
