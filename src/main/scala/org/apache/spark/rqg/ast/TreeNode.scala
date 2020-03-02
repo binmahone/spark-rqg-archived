@@ -6,6 +6,26 @@ import com.typesafe.config.ConfigFactory
 
 /**
  * A TreeNode represents a part of a Query.
+ * A set of TreeNode will form an AST and represent a complete Query. Here is an example:
+ *                          -------- Query --------------
+ *                         /                             \
+ *               SelectClause                           FromClause
+ *            /           \                           /           \
+ * SetQuantifier  NamedExpression                  TablePrimary   JoinRelation
+ *     |          /        \ <-> create as a child
+ * "DISTINCT"  Alias    BooleanExpression (trait)
+ *             /            \ <-> random choose a sub-class
+ *        "expr_1"       Predicated (class extends BooleanExpression)
+ *                           \ <-> create as a child
+ *                        ValueExpression (trait)
+ *                            \ <-> random choose a sub-class
+ *                         PrimaryExpression (trait extends ValueExpression)
+ *                             \ <-> random choose a sub-class
+ *                          Column (class extends PrimaryExpression)
+ *
+ * The example shows 2 kinds of node creation:
+ * 1. parent node create a child node, e.g. NamedExpression create a BooleanExpression
+ * 2. abstract node create a sub-class node, e.g. PrimaryExpression create a Column
  */
 trait TreeNode {
   def parent: Option[TreeNode]

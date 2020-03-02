@@ -13,11 +13,20 @@ import org.apache.spark.rqg.ast.operators._
  *   | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
  *   ;
  *
- * The root class of all expressions defined in sqlbase.g4
+ * The root class of all expressions defined in sqlbase.g4. Generate a booleanExpression will
+ * generate a nested expression randomly. Here is an example:
+ * A >> B means: create A will randomly choose to create one of its sub-class (B)
+ * A -> B means: create A will create B as its child
+ *
+ *                                                          /-> valueExpression >> PrimaryExpression >> Column
+ * booleanExpression       /-> booleanExpression >> predicated
+ *        |>> logicalBinary -> AND                         \-> "IS NOT NULL"
+ *                         \-> booleanExpression                                     /-> valueExpression >> primaryExpression >> constant
+ *                                    |>> predicated -> valueExpression >> comparison -> EQ
+ *                                                                                   \-> valueExpression >> primaryExpression >> constant
  *
  * Here the name may lead some ambiguous: BooleanExpression will also generate non-boolean
- * expression.
- * for example: booleanExpression -> valueExpression -> primaryExpression -> constant
+ * expression. Since booleanExpression may generate a int constant (see above example)
  */
 trait BooleanExpression extends TreeNode with Expression
 
