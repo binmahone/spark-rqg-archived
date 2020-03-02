@@ -3,28 +3,43 @@ This project provides a random query generator to capture the correctness bugs b
 
 ## Download
 ```
-https://github.com/LinhongLiu/spark-rqg.git
+git clone https://github.com/LinhongLiu/spark-rqg.git
 ```
 
-## Build
+## Run DataGenerator to create random data for testing
 ```
-sbt package
-```
-
-## Prerequisities
-```
-wget https://www.apache.org/dyn/closer.lua/spark/spark-3.0.0-preview2/spark-3.0.0-preview2-bin-hadoop2.7.tgz
-tar -xzvf spark-3.0.0-preview2-bin-hadoop2.7.tgz
-cd spark-3.0.0-preview2-bin-hadoop2.7
-./sbin/start-thriftserver.sh
+./bin/runDataGenerator \
+  --randomizationSeed=10 \
+  --maxRowCount=110 --minRowCount=100 \
+  --maxColumnCount=200 --minColumnCount=100 \
+  --tableCount=10 \
+  --testSparkVersion=3.0.0-preview2 --refSparkVersion=3.0.0-preview
+# Run ./bin/runDataGenerator --help for more information
 ```
 
-## Generate Data
+## Run QueryGenerator to generate queries and run against 2 Spark versions
 ```
-sbt "runMain com.baidu.spark.rqg.DataGenerator --randomizationSeed=10 --minRowCount=100 --maxRowCount=200"
+./bin/runQueryGenerator --randomizationSeed=0 \
+  --queryCount=10 \
+  --testSparkVersion=3.0.0-preview2 --testMaster="local[2]"\
+  --refSparkVersion=3.0.0-preview --refMaster=yarn-cluster
+# Run ./bin/runQueryGenerator --help for more information
 ```
 
-## Run Generated Queries
+## Run queries on a customized spark 
 ```
-sbt "runMain com.baidu.spark.rqg.comparison.DiscrepancySearcher --queryCount=10"
+./bin/runQueryGenerator --randomizationSeed=0 \
+  --queryCount=10 \
+  --testSparkVersion=3.0.0-SNAPSHOT --testMaster="local[2]"\
+  --testSparkHome="/path/to/spark/spark-3.0.0-SNAPSHOT-bin-hadoop2.7" # just specify a spark home
+  --refSparkVersion=3.0.0-preview --refMaster=yarn-cluster
+```
+
+## Package project for distribution
+```
+# create a distributable folder in target/pack and launch scripts for data-generator and query-generator
+sbt pack
+
+# create a tar.gz archive in target
+sbt packArchive
 ```
