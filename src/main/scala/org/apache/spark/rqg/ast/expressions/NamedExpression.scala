@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg.{DataType, RandomUtils}
-import org.apache.spark.rqg.ast.{ExpressionGenerator, QuerySession, TreeNode}
+import org.apache.spark.rqg.ast.{ExpressionGenerator, QueryContext, TreeNode}
 
 /**
  * namedExpression
@@ -9,7 +9,7 @@ import org.apache.spark.rqg.ast.{ExpressionGenerator, QuerySession, TreeNode}
  *     ;
  */
 class NamedExpression(
-    val querySession: QuerySession,
+    val querySession: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_],
     isLast: Boolean) extends Expression {
@@ -37,7 +37,7 @@ class NamedExpression(
 
 object NamedExpression extends ExpressionGenerator[NamedExpression] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredType: DataType[_],
       isLast: Boolean): NamedExpression = {
@@ -52,7 +52,7 @@ object NamedExpression extends ExpressionGenerator[NamedExpression] {
 
   override def canGenerateAggFunc: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] =
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] =
     DataType.supportedDataTypes
 }
 

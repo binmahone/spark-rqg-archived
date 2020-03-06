@@ -2,7 +2,7 @@ package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.{RQGConfig, RandomUtils}
 import org.apache.spark.rqg.ast.expressions.NamedExpression
-import org.apache.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{AggPreference, QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * selectClause
@@ -12,11 +12,11 @@ import org.apache.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNode
  * For now we don't support hint
  */
 class SelectClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val setQuantifier: Option[String] =
-    if (RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
+    if (RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
       Some("DISTINCT")
     } else {
       None
@@ -24,18 +24,18 @@ class SelectClause(
   val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
-    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
+    val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
     (0 until RandomUtils.choice(min, max))
       .map { _ =>
         val useAgg = RandomUtils.nextBoolean()
         if (useAgg) {
-          querySession.aggPreference = AggPreference.PREFER
+          queryContext.aggPreference = AggPreference.PREFER
         }
         val dataType = RandomUtils.choice(
-          querySession.allowedDataTypes, querySession.rqgConfig.getWeight(RQGConfig.DATA_TYPE))
-        val (min, max) = querySession.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
-        querySession.allowedNestedExpressionCount = RandomUtils.choice(min, max)
-        NamedExpression(querySession, Some(this), dataType, isLast = true)
+          queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.DATA_TYPE))
+        val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+        queryContext.allowedNestedExpressionCount = RandomUtils.choice(min, max)
+        NamedExpression(queryContext, Some(this), dataType, isLast = true)
       }
   }
 
@@ -49,7 +49,7 @@ class SelectClause(
  */
 object SelectClause extends TreeNodeGenerator[SelectClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): SelectClause = {
     new SelectClause(querySession, parent)
   }

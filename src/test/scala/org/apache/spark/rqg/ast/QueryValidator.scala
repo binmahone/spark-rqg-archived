@@ -2,7 +2,7 @@ package org.apache.spark.rqg.ast
 
 import org.apache.spark.sql.SparkSession
 
-class QueryValidator(querySession: QuerySession) {
+class QueryValidator(querySession: QueryContext) {
 
   private val sparkSession = SparkSession.builder().master("local[2]").getOrCreate()
 

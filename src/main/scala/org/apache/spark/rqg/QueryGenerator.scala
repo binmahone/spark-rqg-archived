@@ -1,11 +1,11 @@
 package org.apache.spark.rqg
 
-import org.apache.spark.rqg.ast.{Column, Query, QuerySession, Table}
+import org.apache.spark.rqg.ast.{Column, Query, QueryContext, Table}
 
 class QueryGenerator(tables: Array[Table]) {
 
   def createQuery(): Query = {
-    Query(QuerySession(availableTables = tables))
+    Query(QueryContext(availableTables = tables))
   }
 }
 

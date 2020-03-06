@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.RandomUtils
-import org.apache.spark.rqg.ast.{Query, QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{Query, QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * aggregationClause
@@ -21,7 +21,7 @@ import org.apache.spark.rqg.ast.{Query, QuerySession, TreeNode, TreeNodeGenerato
  * TODO: support expression after aggregation function is ready.
  */
 class AggregationClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val groupingExpressions: Seq[String] = generateGroupingExpressions
@@ -35,7 +35,7 @@ class AggregationClause(
         throw new IllegalArgumentException("AggregationClause's parent is not Query")
     }
     if (expressions.isEmpty) {
-      val relation = RandomUtils.nextChoice(querySession.availableRelations)
+      val relation = RandomUtils.nextChoice(queryContext.availableRelations)
       val column = RandomUtils.nextChoice(relation.columns)
       Seq(s"${relation.name}.${column.name}")
     } else {
@@ -51,7 +51,7 @@ class AggregationClause(
  */
 object AggregationClause extends TreeNodeGenerator[AggregationClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): AggregationClause = {
 
     require(parent.forall(_.isInstanceOf[Query]), "AggregationClause can only be child of Query")

@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg.{DataType, RandomUtils}
-import org.apache.spark.rqg.ast.{PredicateGenerator, QuerySession, TreeNode}
+import org.apache.spark.rqg.ast.{PredicateGenerator, QueryContext, TreeNode}
 
 /**
  * predicate
@@ -34,7 +34,7 @@ trait Predicate extends TreeNode {
  */
 object Predicate extends PredicateGenerator[Predicate] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): Predicate = {
 
@@ -51,7 +51,7 @@ object Predicate extends PredicateGenerator[Predicate] {
  * grammar: NOT? kind=BETWEEN lower=valueExpression AND upper=valueExpression
  */
 class BetweenPredicate(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
 
@@ -59,11 +59,11 @@ class BetweenPredicate(
   val upper: ValueExpression = generateUpper
 
   private def generateLower = {
-    ValueExpression(querySession, Some(this), requiredDataType)
+    ValueExpression(queryContext, Some(this), requiredDataType)
   }
 
   private def generateUpper = {
-    ValueExpression(querySession, Some(this), requiredDataType)
+    ValueExpression(queryContext, Some(this), requiredDataType)
   }
 
   override def sql: String = s"${notOption.getOrElse("")} BETWEEN ${lower.sql} AND ${upper.sql}"
@@ -76,7 +76,7 @@ class BetweenPredicate(
  */
 object BetweenPredicate extends PredicateGenerator[BetweenPredicate] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): BetweenPredicate = {
     new BetweenPredicate(querySession, parent, requiredDataType)
@@ -87,14 +87,14 @@ object BetweenPredicate extends PredicateGenerator[BetweenPredicate] {
  * grammar: NOT? kind=IN '(' expression (',' expression)* ')'
  */
 class InPredicate(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
 
   val expressionSeq: Seq[BooleanExpression] = generateExpressionSeq
 
   private def generateExpressionSeq = {
-    Seq(BooleanExpression(querySession, Some(this), requiredDataType))
+    Seq(BooleanExpression(queryContext, Some(this), requiredDataType))
   }
 
   override def sql: String =
@@ -108,7 +108,7 @@ class InPredicate(
  */
 object InPredicate extends PredicateGenerator[InPredicate] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): InPredicate = {
     new InPredicate(querySession, parent, requiredDataType)
@@ -119,11 +119,11 @@ object InPredicate extends PredicateGenerator[InPredicate] {
  * grammar: NOT? kind=(RLIKE | LIKE) pattern=valueExpression
  */
 class LikePredicate(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
 
-  val valueExpression = ValueExpression(querySession, Some(this), requiredDataType)
+  val valueExpression = ValueExpression(queryContext, Some(this), requiredDataType)
   override def sql: String = s"${notOption.getOrElse("")} LIKE ${valueExpression.sql}"
 
   override def name: String = "like_predicate"
@@ -134,7 +134,7 @@ class LikePredicate(
  */
 object LikePredicate extends PredicateGenerator[LikePredicate] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): LikePredicate = {
     new LikePredicate(querySession, parent, requiredDataType)
@@ -145,7 +145,7 @@ object LikePredicate extends PredicateGenerator[LikePredicate] {
  * grammar: IS NOT? kind=NULL
  */
 class NullPredicate(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
   override def sql: String = s"IS ${notOption.getOrElse("")} NULL"
@@ -158,7 +158,7 @@ class NullPredicate(
  */
 object NullPredicate extends PredicateGenerator[NullPredicate] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): NullPredicate = {
     new NullPredicate(querySession, parent, requiredDataType)

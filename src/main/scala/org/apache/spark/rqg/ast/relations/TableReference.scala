@@ -7,11 +7,11 @@ import org.apache.spark.rqg.ast._
  * Represents an aliased table. For now we always generate alias for table to avoid conflict.
  */
 class TableReference(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends RelationPrimary {
 
-  val table: Table = RandomUtils.nextChoice(querySession.availableTables)
-  val alias = Some(querySession.nextAlias("table"))
+  val table: Table = RandomUtils.nextChoice(queryContext.availableTables)
+  val alias = Some(queryContext.nextAlias("table"))
 
   override def sql: String = s"${table.name} ${alias.map("AS " + _).getOrElse("")}"
 
@@ -27,7 +27,7 @@ class TableReference(
  */
 object TableReference extends RelationPrimaryGenerator[TableReference] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): TableReference = {
     new TableReference(querySession, parent)
   }

@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.relations
 
 import org.apache.spark.rqg.{DataType, RandomUtils}
-import org.apache.spark.rqg.ast.{Column, QuerySession, RelationPrimaryGenerator, TreeNode}
+import org.apache.spark.rqg.ast.{Column, QueryContext, RelationPrimaryGenerator, TreeNode}
 
 /**
  * relationPrimary
@@ -26,7 +26,7 @@ trait RelationPrimary extends TreeNode {
  */
 object RelationPrimary extends RelationPrimaryGenerator[RelationPrimary] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): RelationPrimary = {
 
     RandomUtils.nextChoice(choices).apply(querySession, parent)

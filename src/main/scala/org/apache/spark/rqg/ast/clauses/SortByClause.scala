@@ -1,12 +1,12 @@
 package org.apache.spark.rqg.ast.clauses
 
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * Not implement yet
  */
 class SortByClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   override def sql: String = ""
@@ -14,7 +14,7 @@ class SortByClause(
 
 object SortByClause extends TreeNodeGenerator[SortByClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): SortByClause = {
 
     new SortByClause(querySession, parent)

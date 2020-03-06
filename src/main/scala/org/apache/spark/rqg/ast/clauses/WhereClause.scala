@@ -2,7 +2,7 @@ package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.{BooleanType, RQGConfig, RandomUtils}
 import org.apache.spark.rqg.ast.expressions.BooleanExpression
-import org.apache.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{AggPreference, QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * whereClause
@@ -10,16 +10,16 @@ import org.apache.spark.rqg.ast.{AggPreference, QuerySession, TreeNode, TreeNode
  *     ;
  */
 class WhereClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val booleanExpression: BooleanExpression = generateBooleanExpression
 
   private def generateBooleanExpression = {
-    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
-    querySession.allowedNestedExpressionCount = RandomUtils.choice(min, max)
-    querySession.aggPreference = AggPreference.FORBID
-    BooleanExpression(querySession, Some(this), BooleanType, isLast = true)
+    val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+    queryContext.allowedNestedExpressionCount = RandomUtils.choice(min, max)
+    queryContext.aggPreference = AggPreference.FORBID
+    BooleanExpression(queryContext, Some(this), BooleanType, isLast = true)
   }
   override def sql: String = s"WHERE ${booleanExpression.sql}"
 }
@@ -29,7 +29,7 @@ class WhereClause(
  */
 object WhereClause extends TreeNodeGenerator[WhereClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): WhereClause = {
 
     new WhereClause(querySession, parent)

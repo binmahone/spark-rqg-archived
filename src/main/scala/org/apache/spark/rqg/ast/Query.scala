@@ -8,7 +8,7 @@ import org.apache.spark.rqg.ast.clauses._
  * SelectClause, FromClause, WhereClause, etc.
  */
 class Query(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val fromClause: FromClause = generateFromClause
@@ -22,16 +22,16 @@ class Query(
   val queryOrganization: QueryOrganization = generateQueryOrganization
 
   private def generateFromClause: FromClause = {
-    FromClause(querySession, Some(this))
+    FromClause(queryContext, Some(this))
   }
 
   private def generateSelectClause: SelectClause = {
-    SelectClause(querySession, Some(this))
+    SelectClause(queryContext, Some(this))
   }
 
   private def generateWhereClauseOption: Option[WhereClause] = {
-    if (RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.WHERE))) {
-      Some(WhereClause(querySession, Some(this)))
+    if (RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.WHERE))) {
+      Some(WhereClause(queryContext, Some(this)))
     } else {
       None
     }
@@ -39,15 +39,15 @@ class Query(
 
   private def generateAggregationClauseOption: Option[AggregationClause] = {
     if (selectClause.namedExpressionSeq.exists(_.isAgg) ||
-        RandomUtils.nextBoolean(querySession.rqgConfig.getProbability(RQGConfig.GROUP_BY))) {
-      Some(AggregationClause(querySession, Some(this)))
+        RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.GROUP_BY))) {
+      Some(AggregationClause(queryContext, Some(this)))
     } else {
       None
     }
   }
 
   private def generateQueryOrganization: QueryOrganization = {
-    QueryOrganization(querySession, Some(this))
+    QueryOrganization(queryContext, Some(this))
   }
 
   override def sql: String =
@@ -64,7 +64,7 @@ class Query(
  */
 object Query extends TreeNodeGenerator[Query] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode] = None): Query = {
     new Query(querySession, parent)
   }

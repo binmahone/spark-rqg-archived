@@ -17,7 +17,7 @@ trait Generator[T]
  * Common Generator trait, most TreeNode generator extends this
  */
 trait TreeNodeGenerator[T] extends Generator[T] {
-  def apply(querySession: QuerySession, parent: Option[TreeNode]): T
+  def apply(querySession: QueryContext, parent: Option[TreeNode]): T
 }
 
 /**
@@ -25,7 +25,7 @@ trait TreeNodeGenerator[T] extends Generator[T] {
  * TableReference, AliasedQuery, FunctionTable. For now, we only support TableReference
  */
 trait RelationPrimaryGenerator[T] extends Generator[T] {
-  def apply(querySession: QuerySession, parent: Option[TreeNode]): T
+  def apply(querySession: QueryContext, parent: Option[TreeNode]): T
 }
 
 /**
@@ -46,6 +46,9 @@ trait ExpressionGenerator[T] extends Generator[T] {
    */
   def canGenerateRelational: Boolean
 
+  /**
+   *  If a generator is possible to generate a aggregation function. like count, sum
+   */
   def canGenerateAggFunc: Boolean
 
   /**
@@ -57,7 +60,7 @@ trait ExpressionGenerator[T] extends Generator[T] {
   /**
    * possible data type a generator can return. For example: Comparison can only return BooleanType
    */
-  def possibleDataTypes(querySession: QuerySession): Array[DataType[_]]
+  def possibleDataTypes(queryContext: QueryContext): Array[DataType[_]]
 
   /**
    * @param requiredDataType means the generated expression should return this data type
@@ -70,7 +73,7 @@ trait ExpressionGenerator[T] extends Generator[T] {
    *                     expr1  expr2
    */
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): T
@@ -81,5 +84,5 @@ trait ExpressionGenerator[T] extends Generator[T] {
  * not actually an expression
  */
 trait PredicateGenerator[T] extends Generator[T] {
-  def apply(querySession: QuerySession, parent: Option[TreeNode], requiredDataType: DataType[_]): T
+  def apply(querySession: QueryContext, parent: Option[TreeNode], requiredDataType: DataType[_]): T
 }

@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.relations
 
 import org.apache.spark.rqg.{RQGConfig, RandomUtils}
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 import org.apache.spark.rqg.ast.joins._
 
 /**
@@ -13,24 +13,24 @@ import org.apache.spark.rqg.ast.joins._
  * for now we don't support natural join
  */
 class JoinRelation(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val joinType: String =
-    RandomUtils.choice(joinTypes, querySession.rqgConfig.getWeight(RQGConfig.JOIN_TYPE)).name
+    RandomUtils.choice(joinTypes, queryContext.rqgConfig.getWeight(RQGConfig.JOIN_TYPE)).name
   val relationPrimary: RelationPrimary = generateRelationPrimary
   val joinCriteria: JoinCriteria = generateJoinCriteria
 
   private def generateRelationPrimary: RelationPrimary = {
-    val relationPrimary = RelationPrimary(querySession, Some(this))
-    querySession.joiningRelation = Some(relationPrimary)
+    val relationPrimary = RelationPrimary(queryContext, Some(this))
+    queryContext.joiningRelation = Some(relationPrimary)
     relationPrimary
   }
 
   private def generateJoinCriteria: JoinCriteria = {
-    val joinCriteria = JoinCriteria(querySession, Some(this))
+    val joinCriteria = JoinCriteria(queryContext, Some(this))
     // Reset querySession's joiningRelation after joinCriteria is generated
-    querySession.joiningRelation = None
+    queryContext.joiningRelation = None
     joinCriteria
   }
 
@@ -43,7 +43,7 @@ class JoinRelation(
  */
 object JoinRelation extends TreeNodeGenerator[JoinRelation] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): JoinRelation = {
     new JoinRelation(querySession, parent)
   }

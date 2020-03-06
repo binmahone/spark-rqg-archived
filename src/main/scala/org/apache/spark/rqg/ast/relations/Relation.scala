@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.relations
 
 import org.apache.spark.rqg.{RQGConfig, RandomUtils}
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * relation
@@ -9,7 +9,7 @@ import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
  *     ;
  */
 class Relation(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val relationPrimary: RelationPrimary = generateRelationPrimary
@@ -19,17 +19,17 @@ class Relation(
   def relations: Seq[RelationPrimary] = Seq(relationPrimary)
 
   private def generateRelationPrimary: RelationPrimary = {
-    val relationPrimary = RelationPrimary(querySession, Some(this))
-    querySession.availableRelations = querySession.availableRelations :+ relationPrimary
+    val relationPrimary = RelationPrimary(queryContext, Some(this))
+    queryContext.availableRelations = queryContext.availableRelations :+ relationPrimary
     relationPrimary
   }
 
   private def generateJoinRelationSeq: Seq[JoinRelation] = {
-    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.JOIN_COUNT)
+    val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.JOIN_COUNT)
     (0 until RandomUtils.choice(min, max)).map { _ =>
-      val joinRelation = JoinRelation(querySession, Some(this))
-      querySession.availableRelations =
-        querySession.availableRelations :+ joinRelation.relationPrimary
+      val joinRelation = JoinRelation(queryContext, Some(this))
+      queryContext.availableRelations =
+        queryContext.availableRelations :+ joinRelation.relationPrimary
       joinRelation
     }
   }
@@ -42,7 +42,7 @@ class Relation(
  */
 object Relation extends TreeNodeGenerator[Relation] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): Relation = {
     new Relation(querySession, parent)
   }

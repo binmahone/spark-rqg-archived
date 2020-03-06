@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.ast.relations.Relation
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * fromClause
@@ -11,13 +11,13 @@ import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
  * For now, we support only one relation
  */
 class FromClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val relation: Relation = generateRelation
 
   private def generateRelation: Relation = {
-    Relation(querySession, Some(this))
+    Relation(queryContext, Some(this))
   }
 
   override def sql: String = s"FROM ${relation.sql}"
@@ -28,7 +28,7 @@ class FromClause(
  */
 object FromClause extends TreeNodeGenerator[FromClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): FromClause = {
     new FromClause(querySession, parent)
   }

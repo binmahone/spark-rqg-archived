@@ -7,6 +7,7 @@ import com.typesafe.config.ConfigFactory
 /**
  * A TreeNode represents a part of a Query.
  * A set of TreeNode will form an AST and represent a complete Query. Here is an example:
+ *
  *                          -------- Query --------------
  *                         /                             \
  *               SelectClause                           FromClause
@@ -23,23 +24,27 @@ import com.typesafe.config.ConfigFactory
  *                             \ <-> random choose a sub-class
  *                          Column (class extends PrimaryExpression)
  *
- * The example shows 2 kinds of node creation:
+ * This example contains 2 kinds of node creation:
  * 1. parent node create a child node, e.g. NamedExpression create a BooleanExpression
  * 2. abstract node create a sub-class node, e.g. PrimaryExpression create a Column
+ *
+ * TODO: add a check to make sure the AST is consistent to target spark version. (maybe comparing
+ * the commit id of sqlbase.g4)
  */
 trait TreeNode {
   def parent: Option[TreeNode]
-  def querySession: QuerySession
+  def queryContext: QueryContext
   def sql: String
 }
 
 /**
- * QuerySession contains all the states during a Query generating, such as:
+ * QueryContext contains all the states and requirements during a Query generating, such as:
  * 1. available tables a FromClause can choose from
  * 2. aliasId to generate unique alias
  * 3. allowed data types when generating an expression
+ * 4. required nested expression count
  */
-case class QuerySession(
+case class QueryContext(
     var rqgConfig: RQGConfig = RQGConfig.load(),
     var availableTables: Array[Table] = Array.empty,
     var availableRelations: Array[RelationPrimary] = Array.empty,

@@ -24,14 +24,6 @@ class RQGConfig(config: Config) {
     }
   }
 
-  def getFlag(entry: RQGConfigEntry): Boolean = {
-    if (config.hasPath(entry.key)) {
-      config.getBoolean(entry.key)
-    } else {
-      entry.defaultValue.asInstanceOf[Boolean]
-    }
-  }
-
   def getWeight(entry: RQGConfigEntry): List[WeightEntry] = {
     if (config.hasPath(entry.key)) {
       config.getConfig(entry.key).entrySet().asScala.map { v =>
@@ -53,16 +45,12 @@ object RQGConfig {
   val BOUNDS = s"$QUERY_PROFILE.BOUNDS"
   val WEIGHTS = s"$QUERY_PROFILE.WEIGHTS"
   val PROBABILITIES = s"$QUERY_PROFILE.PROBABILITIES"
-  val FLAGS = s"$QUERY_PROFILE.FLAGS"
 
   // Bounds
   val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
   val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 2))
   val SELECT_ITEM_COUNT = RQGConfigEntry(s"$BOUNDS.SELECT_ITEM_COUNT", (1, 5))
-  val WITH_TABLE_COUNT = RQGConfigEntry(s"$BOUNDS.WITH_TABLE_COUNT", (1, 3))
   val JOIN_COUNT = RQGConfigEntry(s"$BOUNDS.JOIN_COUNT", (0, 2))
-  val ANALYTIC_LEAD_LAG_OFFSET = RQGConfigEntry(s"$BOUNDS.ANALYTIC_LEAD_LAG_OFFSET", (1, 100))
-  val ANALYTIC_WINDOW_OFFSET = RQGConfigEntry(s"$BOUNDS.ANALYTIC_WINDOW_OFFSET", (1, 100))
 
   // Weights
   private val defaultJoinWeights =
@@ -85,22 +73,7 @@ object RQGConfig {
   val UNION = RQGConfigEntry(s"$PROBABILITIES.UNION", 0.1d)
   val ORDER_BY = RQGConfigEntry(s"$PROBABILITIES.ORDER_BY", 0.1d)
 
-  val ANALYTIC_PARTITION_BY = RQGConfigEntry(s"$PROBABILITIES.ANALYTIC_PARTITION_BY", 0.5d)
-  val ANALYTIC_ORDER_BY = RQGConfigEntry(s"$PROBABILITIES.ANALYTIC_ORDER_BY", 0.5d)
-  val ANALYTIC_WINDOW = RQGConfigEntry(s"$PROBABILITIES.ANALYTIC_WINDOW", 0.5d)
-
-  val INLINE_VIEW = RQGConfigEntry(s"$PROBABILITIES.INLINE_VIEW", 0.1d)
   val SELECT_DISTINCT = RQGConfigEntry(s"$PROBABILITIES.SELECT_DISTINCT", 0.1d)
-  val SCALAR_SUBQUERY = RQGConfigEntry(s"$PROBABILITIES.SCALAR_SUBQUERY", 0.1d)
-  val UNION_ALL = RQGConfigEntry(s"$PROBABILITIES.UNION_ALL", 0.5d)
-
-  // Flags
-  val TOP_LEVEL_QUERY_WITHOUT_LIMIT = RQGConfigEntry(s"$FLAGS.TOP_LEVEL_QUERY_WITHOUT_LIMIT", true)
-  val DETERMINISTIC_ORDER_BY = RQGConfigEntry(s"$FLAGS.DETERMINISTIC_ORDER_BY", true)
-  val NO_ORDER_BY = RQGConfigEntry(s"$FLAGS.NO_ORDER_BY", true)
-  val ONLY_SELECT_ITEM = RQGConfigEntry(s"$FLAGS.ONLY_SELECT_ITEM", true)
-  val UNBOUNDED_WINDOW = RQGConfigEntry(s"$FLAGS.UNBOUNDED_WINDOW", true)
-  val RANK_FUNC = RQGConfigEntry(s"$FLAGS.RANK_FUNC", true)
 
   def load(path: String = ""): RQGConfig = {
     if (path.isEmpty) {

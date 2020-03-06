@@ -2,7 +2,7 @@ package org.apache.spark.rqg.ast.relations
 
 import org.apache.spark.rqg.{BooleanType, DataType, RQGConfig, RandomUtils}
 import org.apache.spark.rqg.ast.expressions.BooleanExpression
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * joinCriteria
@@ -20,24 +20,24 @@ import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
  *   3. make sure booleanExpression always generate comparison(or other relational func) for join
  */
 class JoinCriteria(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
-  require(querySession.joiningRelation.isDefined, "no relation to join during creating JoinCriteria")
+  require(queryContext.joiningRelation.isDefined, "no relation to join during creating JoinCriteria")
 
   val booleanExpression: BooleanExpression = generateBooleanExpression
 
   private def generateBooleanExpression: BooleanExpression = {
-    val prevAllowedDataTypes = querySession.allowedDataTypes
-    querySession.requiredRelationalExpressionCount = 1
-    val (min, max) = querySession.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+    val prevAllowedDataTypes = queryContext.allowedDataTypes
+    queryContext.requiredRelationalExpressionCount = 1
+    val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
     // we always need at least one nested for join criteria
-    querySession.allowedNestedExpressionCount = RandomUtils.choice(math.max(min, 1), max)
-    val booleanExpression = BooleanExpression(querySession, Some(this), BooleanType, isLast = true)
-    querySession.allowedDataTypes = prevAllowedDataTypes
-    assert(querySession.requiredRelationalExpressionCount <= 0)
+    queryContext.allowedNestedExpressionCount = RandomUtils.choice(math.max(min, 1), max)
+    val booleanExpression = BooleanExpression(queryContext, Some(this), BooleanType, isLast = true)
+    queryContext.allowedDataTypes = prevAllowedDataTypes
+    assert(queryContext.requiredRelationalExpressionCount <= 0)
     // restore back
-    querySession.requiredRelationalExpressionCount = 0
+    queryContext.requiredRelationalExpressionCount = 0
     booleanExpression
   }
 
@@ -49,7 +49,7 @@ class JoinCriteria(
  */
 object JoinCriteria extends TreeNodeGenerator[JoinCriteria] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): JoinCriteria = {
     new JoinCriteria(querySession, parent)
   }

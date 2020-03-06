@@ -13,18 +13,20 @@ import org.apache.spark.rqg.ast.operators._
  *   | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
  *   ;
  *
- * The root class of all expressions defined in sqlbase.g4. Generate a booleanExpression will
- * generate a nested expression randomly. Here is an example:
+ * BooleanExpression is the root class of all expressions defined in sqlbase.g4.
+ * Generate a booleanExpression will generate a nested expression randomly. Here is an example:
+ *
  * A >> B means: create A will randomly choose to create one of its sub-class (B)
  * A -> B means: create A will create B as its child
  *
  *                                                          /-> valueExpression >> PrimaryExpression >> Column
  * booleanExpression       /-> booleanExpression >> predicated
  *        |>> logicalBinary -> AND                         \-> "IS NOT NULL"
- *                         \-> booleanExpression                                     /-> valueExpression >> primaryExpression >> constant
+ *                         \-> booleanExpression                                     /-> valueExpression >> primaryExpression >> column
  *                                    |>> predicated -> valueExpression >> comparison -> EQ
  *                                                                                   \-> valueExpression >> primaryExpression >> constant
  *
+ * (column_1 IS NOT NULL) AND (column_b eq 0)
  * Here the name may lead some ambiguous: BooleanExpression will also generate non-boolean
  * expression. Since booleanExpression may generate a int constant (see above example)
  */
@@ -35,54 +37,54 @@ trait BooleanExpression extends TreeNode with Expression
  */
 object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
   override def apply(
-      querySession: QuerySession,
+      queryContext: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean = false): BooleanExpression = {
 
-    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+    val filteredChoices = (if (queryContext.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
-    } else if (querySession.needGenerateRelationalExpression) {
+    } else if (queryContext.needGenerateRelationalExpression) {
       choices.filter(_.canGenerateRelational)
-    } else if (querySession.needGenerateAggFunction) {
+    } else if (queryContext.needGenerateAggFunction) {
       choices.filter(_.canGenerateAggFunc)
-    } else if (querySession.allowedNestedExpressionCount > 0 && isLast) {
+    } else if (queryContext.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
       choices
-    }).filter(_.possibleDataTypes(querySession).exists(requiredDataType.acceptsType))
-    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+    }).filter(_.possibleDataTypes(queryContext).exists(requiredDataType.acceptsType))
+    RandomUtils.nextChoice(filteredChoices).apply(queryContext, parent, requiredDataType, isLast)
   }
 
   private def choices = Array(LogicalNot, Predicated, LogicalBinary)
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
-    choices.flatMap(_.possibleDataTypes(querySession)).distinct
-  }
-
   override def canGenerateRelational: Boolean = true
 
   override def canGenerateAggFunc: Boolean = true
 
   override def canGenerateNested: Boolean = true
+
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
+    choices.flatMap(_.possibleDataTypes(querySession)).distinct
+  }
 }
 
 /**
  * grammar: NOT booleanExpression
  */
 class LogicalNot(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     isLast: Boolean) extends BooleanExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
 
   val booleanExpression: BooleanExpression = generateBooleanExpression
 
   private def generateBooleanExpression = {
-    BooleanExpression(querySession, Some(this), BooleanType, isLast)
+    BooleanExpression(queryContext, Some(this), BooleanType, isLast)
   }
 
   override def name: String = s"not_${booleanExpression.name}"
@@ -103,7 +105,7 @@ class LogicalNot(
  */
 object LogicalNot extends ExpressionGenerator[LogicalNot] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): LogicalNot = {
@@ -116,7 +118,7 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
 
   override def canGenerateRelational: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     Array(BooleanType)
   }
 
@@ -132,11 +134,11 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
  * Here we combine 2 grammar in one class
  */
 class LogicalBinary(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     isLast: Boolean) extends BooleanExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
 
   val operator: Operator = RandomUtils.nextChoice(operators)
   val left: BooleanExpression = generateLeft
@@ -147,11 +149,11 @@ class LogicalBinary(
   override def dataType: DataType[_] = BooleanType
 
   private def generateLeft: BooleanExpression = {
-    BooleanExpression(querySession, Some(this), BooleanType)
+    BooleanExpression(queryContext, Some(this), BooleanType)
   }
 
   private def generateRight: BooleanExpression = {
-    BooleanExpression(querySession, Some(this), BooleanType, isLast)
+    BooleanExpression(queryContext, Some(this), BooleanType, isLast)
   }
 
   private def operators = Array(AND, OR)
@@ -170,18 +172,18 @@ class LogicalBinary(
  */
 object LogicalBinary extends ExpressionGenerator[LogicalBinary] {
   def apply(
-      querySession: QuerySession,
+      queryContext: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): LogicalBinary = {
 
     require(requiredDataType == BooleanType, "LogicalBinary can only return BooleanType")
-    new LogicalBinary(querySession, parent, isLast)
+    new LogicalBinary(queryContext, parent, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     Array(BooleanType)
   }
 
@@ -199,7 +201,7 @@ object LogicalBinary extends ExpressionGenerator[LogicalBinary] {
  * non-boolean data type. This is one important point during nested expression creation.
  */
 class Predicated(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_],
     isLast: Boolean) extends BooleanExpression {
@@ -209,14 +211,14 @@ class Predicated(
   // data type is not boolean, we don't use predicate. If we need generate relational expression,
   // don't use predicate as well.
   private val usePredicate =
-    !querySession.needGeneratePrimitiveExpression &&
-      querySession.requiredRelationalExpressionCount > 0 &&
-      querySession.aggPreference == AggPreference.PREFER &&
+    !queryContext.needGeneratePrimitiveExpression &&
+      queryContext.requiredRelationalExpressionCount > 0 &&
+      queryContext.aggPreference == AggPreference.PREFER &&
       requiredDataType == BooleanType &&
       RandomUtils.nextBoolean()
 
   if (usePredicate) {
-    querySession.allowedNestedExpressionCount -= 1
+    queryContext.allowedNestedExpressionCount -= 1
   }
 
   val valueExpression: ValueExpression = generateValueExpression
@@ -225,17 +227,17 @@ class Predicated(
   private def generateValueExpression = {
     val valueExpressionDataType =
       // check relation requirement again. This is a little bit tricky
-      if (usePredicate && !querySession.needGenerateRelationalExpression) {
-        RandomUtils.nextChoice(querySession.dataTypesInAvailableRelations)
+      if (usePredicate && !queryContext.needGenerateRelationalExpression) {
+        RandomUtils.nextChoice(queryContext.dataTypesInAvailableRelations)
       } else {
         requiredDataType
       }
-    ValueExpression(querySession, Some(this), valueExpressionDataType, isLast)
+    ValueExpression(queryContext, Some(this), valueExpressionDataType, isLast)
   }
 
   private def generatePredicateOption = {
     if (usePredicate) {
-      Some(Predicate(querySession, Some(this), valueExpression.dataType))
+      Some(Predicate(queryContext, Some(this), valueExpression.dataType))
     } else {
       None
     }
@@ -262,7 +264,7 @@ class Predicated(
  */
 object Predicated extends ExpressionGenerator[Predicated] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): Predicated = {
@@ -271,7 +273,7 @@ object Predicated extends ExpressionGenerator[Predicated] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     (ValueExpression.possibleDataTypes(querySession) :+ BooleanType).distinct
   }
 

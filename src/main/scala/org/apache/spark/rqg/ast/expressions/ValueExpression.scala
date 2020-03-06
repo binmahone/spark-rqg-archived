@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.{ExpressionGenerator, Operator, QuerySession, TreeNode}
+import org.apache.spark.rqg.ast.{ExpressionGenerator, Operator, QueryContext, TreeNode}
 import org.apache.spark.rqg.ast.operators._
 
 /**
@@ -24,7 +24,7 @@ trait ValueExpression extends TreeNode with Expression
  */
 object ValueExpression extends ExpressionGenerator[ValueExpression] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean = false): ValueExpression = {
@@ -47,7 +47,7 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
 
   override def canGenerateRelational: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     (PrimaryExpression.possibleDataTypes(querySession) :+ BooleanType).distinct
   }
 
@@ -64,18 +64,18 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
  * Here we assume its data type is always same to valueExpression's
  */
 class ArithmeticUnary(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_],
     isLast: Boolean) extends ValueExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
 
   val operator: Operator = RandomUtils.nextChoice(operators)
   val valueExpression: ValueExpression = generateValueExpression
 
   private def generateValueExpression = {
-    ValueExpression(querySession, Some(this), requiredDataType, isLast)
+    ValueExpression(queryContext, Some(this), requiredDataType, isLast)
   }
   private def operators = {
     requiredDataType match {
@@ -102,7 +102,7 @@ class ArithmeticUnary(
  */
 object ArithmeticUnary extends ExpressionGenerator[ArithmeticUnary] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): ArithmeticUnary =
@@ -110,7 +110,7 @@ object ArithmeticUnary extends ExpressionGenerator[ArithmeticUnary] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     ValueExpression.possibleDataTypes(querySession).filter(_.isInstanceOf[NumericType[_]])
   }
 
@@ -132,23 +132,23 @@ object ArithmeticUnary extends ExpressionGenerator[ArithmeticUnary] {
  * Different operator returns different data type, for now we only support PLUS / MINUS / CONCAT
  */
 class ArithmeticBinary(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_],
     isLast: Boolean) extends ValueExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
 
   val operator: Operator = RandomUtils.nextChoice(operators)
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
   private def generateLeft = {
-    ValueExpression(querySession, Some(this), requiredDataType)
+    ValueExpression(queryContext, Some(this), requiredDataType)
   }
 
   private def generateRight = {
-    ValueExpression(querySession, Some(this), requiredDataType, isLast)
+    ValueExpression(queryContext, Some(this), requiredDataType, isLast)
   }
 
   private def operators = {
@@ -179,7 +179,7 @@ class ArithmeticBinary(
  */
 object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean):  ArithmeticBinary = {
@@ -188,7 +188,7 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     ValueExpression.possibleDataTypes(querySession).filterNot(_ == BooleanType)
   }
 
@@ -207,12 +207,12 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
  * special care of this node's creation.
  */
 class Comparison(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     isLast: Boolean) extends ValueExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
-  querySession.requiredRelationalExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
+  queryContext.requiredRelationalExpressionCount -= 1
 
   val valueDataType: DataType[_] = chooseDataType
   val operator: Operator = RandomUtils.nextChoice(operators)
@@ -220,15 +220,15 @@ class Comparison(
   val right: ValueExpression = generateRight
 
   // restore querySession back
-  querySession.requiredColumnCount = 0
-  querySession.needColumnFromJoiningRelation = false
+  queryContext.requiredColumnCount = 0
+  queryContext.needColumnFromJoiningRelation = false
 
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
 
   private def chooseDataType = {
-    querySession.allowedDataTypes = DataType.joinableDataTypes
-    val dataType = RandomUtils.nextChoice(querySession.commonDataTypesForJoin)
-    querySession.allowedDataTypes = DataType.supportedDataTypes
+    queryContext.allowedDataTypes = DataType.joinableDataTypes
+    val dataType = RandomUtils.nextChoice(queryContext.commonDataTypesForJoin)
+    queryContext.allowedDataTypes = DataType.supportedDataTypes
     dataType
   }
 
@@ -237,38 +237,38 @@ class Comparison(
     // use a new querySession state to control the generation. after this, we restore the state back
     // This is a little bit tricky but useful to make sure we have at least one column in the
     // child expression
-    if (querySession.joiningRelation.isDefined) {
-      val previousNestedCount = querySession.allowedNestedExpressionCount
+    if (queryContext.joiningRelation.isDefined) {
+      val previousNestedCount = queryContext.allowedNestedExpressionCount
       val nestedCount = RandomUtils.choice(0, previousNestedCount)
-      querySession.requiredColumnCount = 1
-      querySession.needColumnFromJoiningRelation = false
-      querySession.allowedNestedExpressionCount = nestedCount
-      val expression = ValueExpression(querySession, Some(this), valueDataType, isLast = true)
+      queryContext.requiredColumnCount = 1
+      queryContext.needColumnFromJoiningRelation = false
+      queryContext.allowedNestedExpressionCount = nestedCount
+      val expression = ValueExpression(queryContext, Some(this), valueDataType, isLast = true)
       // restore back
-      querySession.requiredColumnCount = 0
-      querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
+      queryContext.requiredColumnCount = 0
+      queryContext.allowedNestedExpressionCount = previousNestedCount - nestedCount
       expression
     } else {
-      ValueExpression(querySession, Some(this), valueDataType)
+      ValueExpression(queryContext, Some(this), valueDataType)
     }
   }
 
   private def generateRight: ValueExpression = {
     // We always choose column from joining relation for right expr of comparison
-    if (querySession.joiningRelation.isDefined) {
-      val previousNestedCount = querySession.allowedNestedExpressionCount
+    if (queryContext.joiningRelation.isDefined) {
+      val previousNestedCount = queryContext.allowedNestedExpressionCount
       val nestedCount = RandomUtils.choice(0, previousNestedCount)
-      querySession.requiredColumnCount = 1
-      querySession.needColumnFromJoiningRelation = true
-      querySession.allowedNestedExpressionCount = nestedCount
-      val expression = ValueExpression(querySession, Some(this), valueDataType, isLast = true)
+      queryContext.requiredColumnCount = 1
+      queryContext.needColumnFromJoiningRelation = true
+      queryContext.allowedNestedExpressionCount = nestedCount
+      val expression = ValueExpression(queryContext, Some(this), valueDataType, isLast = true)
       // restore back
-      querySession.requiredColumnCount = 0
-      querySession.needColumnFromJoiningRelation = true
-      querySession.allowedNestedExpressionCount = previousNestedCount - nestedCount
+      queryContext.requiredColumnCount = 0
+      queryContext.needColumnFromJoiningRelation = true
+      queryContext.allowedNestedExpressionCount = previousNestedCount - nestedCount
       expression
     } else {
-      ValueExpression(querySession, Some(this), valueDataType, isLast)
+      ValueExpression(queryContext, Some(this), valueDataType, isLast)
     }
   }
 
@@ -290,7 +290,7 @@ class Comparison(
  */
 object Comparison extends ExpressionGenerator[Comparison] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): Comparison = {
@@ -302,7 +302,7 @@ object Comparison extends ExpressionGenerator[Comparison] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     Array(BooleanType)
   }
 

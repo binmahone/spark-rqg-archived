@@ -3,7 +3,7 @@ package org.apache.spark.rqg.ast.expressions
 import java.text.DecimalFormat
 
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QuerySession, Signature, TreeNode}
+import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QueryContext, Signature, TreeNode}
 import org.apache.spark.rqg.ast.functions._
 
 /**
@@ -47,7 +47,7 @@ trait PrimaryExpression extends ValueExpression
  */
 object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean = false): PrimaryExpression = {
@@ -69,7 +69,7 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
 
   override def canGenerateRelational: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     choices.flatMap(_.possibleDataTypes(querySession)).distinct
   }
 
@@ -84,7 +84,7 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
  * Constant
  */
 class Constant(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends PrimaryExpression {
 
@@ -122,7 +122,7 @@ class Constant(
  */
 object Constant extends ExpressionGenerator[Constant] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): Constant = {
@@ -131,7 +131,7 @@ object Constant extends ExpressionGenerator[Constant] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     querySession.allowedDataTypes
   }
 
@@ -143,7 +143,7 @@ object Constant extends ExpressionGenerator[Constant] {
 }
 
 class Star(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends PrimaryExpression {
   override def sql: String = "*"
 
@@ -164,7 +164,7 @@ class Star(
  */
 object Star extends ExpressionGenerator[Star] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): Star = {
@@ -173,7 +173,7 @@ object Star extends ExpressionGenerator[Star] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     Array.empty
   }
 
@@ -189,12 +189,12 @@ object Star extends ExpressionGenerator[Star] {
  * All spark function call generated from here.
  */
 class FunctionCall(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_],
     isLast: Boolean) extends PrimaryExpression {
 
-  querySession.allowedNestedExpressionCount -= 1
+  queryContext.allowedNestedExpressionCount -= 1
 
   val func: Function = generateFunction
 
@@ -203,9 +203,9 @@ class FunctionCall(
   val arguments: Seq[BooleanExpression] = generateArguments
 
   private def generateFunction: Function = {
-    val functions = if (querySession.aggPreference == AggPreference.FORBID) {
+    val functions = if (queryContext.aggPreference == AggPreference.FORBID) {
       FunctionCall.supportedFunctions.filterNot(_.isAgg)
-    } else if (querySession.needGenerateAggFunction) {
+    } else if (queryContext.needGenerateAggFunction) {
       FunctionCall.supportedFunctions.filter(_.isAgg)
     } else {
       FunctionCall.supportedFunctions
@@ -220,14 +220,14 @@ class FunctionCall(
   }
 
   private def generateArguments: Seq[BooleanExpression] = {
-    val previous = querySession.aggPreference
-    if (func.isAgg) querySession.aggPreference = AggPreference.FORBID
+    val previous = queryContext.aggPreference
+    if (func.isAgg) queryContext.aggPreference = AggPreference.FORBID
     val length = signature.inputTypes.length
     val arguments = signature.inputTypes.zipWithIndex.map {
       case (dt, idx) =>
-        BooleanExpression(querySession, Some(this), dt, isLast = idx == (length - 1))
+        BooleanExpression(queryContext, Some(this), dt, isLast = idx == (length - 1))
     }
-    if (previous != AggPreference.FORBID) querySession.aggPreference = AggPreference.ALLOW
+    if (previous != AggPreference.FORBID) queryContext.aggPreference = AggPreference.ALLOW
     arguments
   }
 
@@ -252,7 +252,7 @@ class FunctionCall(
  */
 object FunctionCall extends ExpressionGenerator[FunctionCall] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): FunctionCall = {
@@ -263,7 +263,7 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
 
   override def canGeneratePrimitive: Boolean = false
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     (if (querySession.aggPreference == AggPreference.FORBID) {
       supportedFunctions.filterNot(_.isAgg)
     } else {
@@ -282,7 +282,7 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
  * Random pick a column from available relations
  */
 class ColumnReference(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends PrimaryExpression {
 
@@ -290,13 +290,13 @@ class ColumnReference(
   private val column = generateColumn
 
   private def generateRelation = {
-    if (querySession.needColumnFromJoiningRelation) {
-      querySession.joiningRelation.getOrElse {
+    if (queryContext.needColumnFromJoiningRelation) {
+      queryContext.joiningRelation.getOrElse {
         throw new IllegalArgumentException("No JoiningRelation exists to choose Column")
       }
     } else {
       RandomUtils.nextChoice(
-        querySession.availableRelations
+        queryContext.availableRelations
           .filter(_.columns.exists(c => requiredDataType.acceptsType(c.dataType))))
     }
   }
@@ -324,7 +324,7 @@ class ColumnReference(
  */
 object ColumnReference extends ExpressionGenerator[ColumnReference] {
   override def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): ColumnReference = {
@@ -333,7 +333,7 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
 
   override def canGeneratePrimitive: Boolean = true
 
-  override def possibleDataTypes(querySession: QuerySession): Array[DataType[_]] = {
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     querySession.dataTypesInAvailableRelations
   }
 

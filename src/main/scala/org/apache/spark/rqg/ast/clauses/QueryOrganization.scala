@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.RandomUtils
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * queryOrganization
@@ -16,7 +16,7 @@ import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
  * For now, only support limit clause
  */
 class QueryOrganization(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val limitClauseOption: Option[LimitClause] = generateLimitClause
@@ -27,7 +27,7 @@ class QueryOrganization(
 
   private def generateLimitClause: Option[LimitClause] = {
     if (RandomUtils.nextBoolean()) {
-      Some(LimitClause(querySession, parent))
+      Some(LimitClause(queryContext, parent))
     } else {
       None
     }
@@ -35,7 +35,7 @@ class QueryOrganization(
 
   private def generateOrderByClause: Option[OrderByClause] = {
     if (RandomUtils.nextBoolean()) {
-      Some(OrderByClause(querySession, parent))
+      Some(OrderByClause(queryContext, parent))
     } else {
       None
     }
@@ -43,7 +43,7 @@ class QueryOrganization(
 
   private def generateSortByClause: Option[SortByClause] = {
     if (RandomUtils.nextBoolean()) {
-      Some(SortByClause(querySession, parent))
+      Some(SortByClause(queryContext, parent))
     } else {
       None
     }
@@ -60,7 +60,7 @@ class QueryOrganization(
  */
 object QueryOrganization extends TreeNodeGenerator[QueryOrganization] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): QueryOrganization = {
 
     new QueryOrganization(querySession, parent)

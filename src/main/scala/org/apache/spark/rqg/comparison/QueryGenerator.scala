@@ -2,7 +2,7 @@ package org.apache.spark.rqg.comparison
 
 import org.apache.hadoop.fs.Path
 
-import org.apache.spark.rqg.ast.{Column, Query, QuerySession, Table}
+import org.apache.spark.rqg.ast.{Column, Query, QueryContext, Table}
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.parser.QueryGeneratorOptions
 import org.apache.spark.rqg.runner.SparkSubmitQueryRunner
@@ -40,7 +40,7 @@ object QueryGenerator {
       println(s"Generating $count queries to compare")
       val queries = (0 until count)
         .map(_ => Query(
-          QuerySession(
+          QueryContext(
             rqgConfig = RQGConfig.load(options.configFile),
             availableTables = tables)))
 

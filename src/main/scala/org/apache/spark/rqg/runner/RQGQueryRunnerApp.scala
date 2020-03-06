@@ -17,6 +17,9 @@ import org.apache.spark.sql.execution.SQLExecution
 import org.apache.spark.sql.execution.command._
 import org.apache.spark.sql.types.StructType
 
+/**
+ * Most code is copied from SQLQueryTestSuite
+ */
 object RQGQueryRunnerApp {
 
   case class QueryOutput(sql: String, schema: String, output: String) {

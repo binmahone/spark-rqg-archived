@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.RandomUtils
-import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * grammar: (LIMIT (ALL | limit=expression))?
@@ -9,7 +9,7 @@ import org.apache.spark.rqg.ast.{QuerySession, TreeNode, TreeNodeGenerator}
  * But here we only use constant directly
  */
 class LimitClause(
-    val querySession: QuerySession,
+    val queryContext: QueryContext,
     val parent: Option[TreeNode]) extends TreeNode {
 
   val limit: Int = RandomUtils.nextInt(100)
@@ -21,7 +21,7 @@ class LimitClause(
  */
 object LimitClause extends TreeNodeGenerator[LimitClause] {
   def apply(
-      querySession: QuerySession,
+      querySession: QueryContext,
       parent: Option[TreeNode]): LimitClause = {
     new LimitClause(querySession, parent)
   }
