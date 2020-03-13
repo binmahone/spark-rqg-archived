@@ -101,6 +101,7 @@ object SparkSubmitUtils extends Logging {
     } else {
       new File(s"$sparkHome/bin/spark-submit")
     }
+
     val process = Utils.executeCommand(
       Seq(sparkSubmitFile.getCanonicalPath) ++ args,
       new File(sparkHome),

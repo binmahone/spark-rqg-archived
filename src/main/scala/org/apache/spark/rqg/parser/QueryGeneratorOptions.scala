@@ -94,6 +94,6 @@ object QueryGeneratorOptions {
     val stopOnMismatch = false
     val stopOnCrash = false
     val queryCount = 100
-    val configFile = "conf/rqg-defaults.json"
+    val configFile = ""
   }
 }

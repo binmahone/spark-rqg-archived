@@ -17,9 +17,11 @@ object QueryGenerator {
     System.setSecurityManager(null)
 
     val options = QueryGeneratorOptions.parse(args)
-    RandomUtils.setSeed(options.randomizationSeed)
+    // RandomUtils.setSeed(options.randomizationSeed)
 
     val warehouse = new Path(RQGUtils.getBaseDirectory, "warehouse").toString
+
+    val rqgConfig = RQGConfig.load(options.configFile)
 
     val refQueryRunner = new SparkSubmitQueryRunner(
       options.refSparkVersion, options.refSparkHome, options.refMaster)
@@ -39,15 +41,19 @@ object QueryGenerator {
       val count = math.min(options.queryCount - queryIdx, 100)
       println(s"Generating $count queries to compare")
       val queries = (0 until count)
-        .map(_ => Query(
-          QueryContext(
-            rqgConfig = RQGConfig.load(options.configFile),
-            availableTables = tables)))
+        .map(_ => Query(QueryContext(
+          rqgConfig = rqgConfig,
+          availableTables = tables)))
 
+      val extraSparkConf = rqgConfig.getSparkConfigs.map(
+        entry => entry._1 -> RandomUtils.nextChoice(entry._2)
+      )
+      println("Running queries with randomly generated spark configurations: ")
+      println(extraSparkConf.mkString("\n"))
       println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Reference Spark version")
-      val refResult = refQueryRunner.runQueries(queries.map(_.sql))
+      val refResult = refQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
       println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Test Spark version")
-      val testResult = testQueryRunner.runQueries(queries.map(_.sql))
+      val testResult = testQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
       println(s"Comparing queries $queryIdx to ${queryIdx + count - 1}")
 
       refResult.zip(testResult).foreach {

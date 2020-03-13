@@ -22,7 +22,8 @@ class SparkSubmitQueryRunner(
       new Path(FileSystem.get(new Configuration()).getHomeDirectory, s"rqg_data"),
       s"${version}_output").toString
 
-  override def runQueries(queries: Seq[String]): Seq[QueryOutput] = {
+  override def runQueries(
+      queries: Seq[String], extraSparkConf: Map[String, String] = Map.empty): Seq[QueryOutput] = {
 
     val sparkHome = sparkHomeOpt.map(new File(_))
       .getOrElse(new File(sparkTestingDir, s"spark-$version"))
@@ -37,14 +38,18 @@ class SparkSubmitQueryRunner(
 
     val resultFile = new Path(outputDir, "resultFile-%s.txt".format(System.currentTimeMillis()))
 
-    val args = Seq(
+    val sparkArgs = Seq(
       "--class", RQGQueryRunnerApp.getClass.getName.stripSuffix("$"),
       "--name", s"Spark $version RQG Runner",
       "--master", master,
-      "--files", queryFile.toString,
+      "--files", queryFile.toString)
+    val configArgs = extraSparkConf.flatMap(e => Seq("--conf", e._1 + "=" + e._2))
+    val appArgs = Seq(
       jarFile.toString,
       queryFile.getName,
       resultFile.toString)
+
+    val args = sparkArgs ++ configArgs ++ appArgs
     SparkSubmitUtils.runSparkSubmit(args, sparkHome.getCanonicalPath, timeout)
 
     val is = resultFile.getFileSystem(new Configuration()).open(resultFile)

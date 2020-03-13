@@ -6,7 +6,7 @@ import org.apache.spark.rqg.RQGConfig._
 class RQGConfigSuite extends FunSuite {
 
   test("basic") {
-    val configDefault = RQGConfig.load("conf/rqg-defaults.conf")
+    val configDefault = RQGConfig.load("rqg-defaults.conf")
     assert(configDefault.getBound(JOIN_COUNT) == (0, 2))
     assert(configDefault.getProbability(FROM) == 1.0)
     assert(configDefault.getWeight(JOIN_TYPE).toSet ==
@@ -15,7 +15,7 @@ class RQGConfigSuite extends FunSuite {
         WeightEntry("CROSS", 0.01d)))
 
     // Default Value
-    val configEmpty = RQGConfig.load("conf/rqg-empty.conf")
+    val configEmpty = RQGConfig.load("rqg-empty.conf")
     assert(configEmpty.getBound(JOIN_COUNT) == JOIN_COUNT.defaultValue)
     assert(configEmpty.getProbability(FROM) == FROM.defaultValue)
     assert(configEmpty.getWeight(JOIN_TYPE).toSet ==

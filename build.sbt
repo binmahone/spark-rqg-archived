@@ -10,25 +10,39 @@ scalaVersion := "2.12.10"
 
 enablePlugins(PackPlugin)
 
-val runQueryGenerator = inputKey[Unit]("runs QueryGernator")
+packMain := Map(
+  "data-generator" -> "org.apache.spark.rqg.comparison.DataGenerator",
+  "query-generator" -> "org.apache.spark.rqg.comparison.QueryGenerator")
+
+packExtraClasspath := Map(
+  "data-generator" -> Seq("${PROG_HOME}/conf"),
+  "query-generator" -> Seq("${PROG_HOME}/conf"))
+
+packResourceDir += (baseDirectory.value / "conf" -> "conf")
+
+packGenerateMakefile := false
+
+val runQueryGenerator = inputKey[Unit]("runs QueryGenerator")
 
 runQueryGenerator := {
   import complete.DefaultParsers._
   val args = spaceDelimited("[args]").parsed
   val scalaRun = (runner in run).value
   val classpath = (fullClasspath in Compile).value
-  scalaRun.run("org.apache.spark.rqg.comparison.QueryGenerator", classpath.map(_.data), args,
+  scalaRun.run("org.apache.spark.rqg.comparison.QueryGenerator",
+    classpath.map(_.data) ++ ((baseDirectory.value / "conf") ** "*").get, args,
     streams.value.log)
 }
 
-val runDataGenerator = inputKey[Unit]("runs DataGernator")
+val runDataGenerator = inputKey[Unit]("runs DataGenerator")
 
 runDataGenerator := {
   import complete.DefaultParsers._
   val args = spaceDelimited("[args]").parsed
   val scalaRun = (runner in run).value
   val classpath = (fullClasspath in Compile).value
-  scalaRun.run("org.apache.spark.rqg.comparison.DataGenerator", classpath.map(_.data), args,
+  scalaRun.run("org.apache.spark.rqg.comparison.DataGenerator",
+    classpath.map(_.data) ++ ((baseDirectory.value / "conf") ** "*").get, args,
     streams.value.log)
 }
 

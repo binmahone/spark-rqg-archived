@@ -1,7 +1,6 @@
 package org.apache.spark.rqg
 
 import scala.collection.JavaConverters._
-import scala.util.Random
 
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -31,6 +30,16 @@ class RQGConfig(config: Config) {
       }.toList
     } else {
       entry.defaultValue.asInstanceOf[List[WeightEntry]]
+    }
+  }
+
+  def getSparkConfigs: Map[String, Array[String]] = {
+    if (config.hasPath(RQGConfig.SPARK_CONF)) {
+      config.getConfig(RQGConfig.SPARK_CONF).entrySet().asScala.map { v =>
+        v.getKey -> config.getStringList(RQGConfig.SPARK_CONF + "." + v.getKey).asScala.toArray
+      }.toMap
+    } else {
+      Map.empty
     }
   }
 }
@@ -77,7 +86,7 @@ object RQGConfig {
 
   def load(path: String = ""): RQGConfig = {
     if (path.isEmpty) {
-      new RQGConfig(ConfigFactory.empty())
+      new RQGConfig(ConfigFactory.load("rqg-defaults.conf"))
     } else {
       new RQGConfig(ConfigFactory.load(path))
     }
