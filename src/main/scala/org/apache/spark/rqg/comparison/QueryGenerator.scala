@@ -17,7 +17,7 @@ object QueryGenerator {
     System.setSecurityManager(null)
 
     val options = QueryGeneratorOptions.parse(args)
-    // RandomUtils.setSeed(options.randomizationSeed)
+    RandomUtils.setSeed(options.randomizationSeed)
 
     val warehouse = new Path(RQGUtils.getBaseDirectory, "warehouse").toString
 
