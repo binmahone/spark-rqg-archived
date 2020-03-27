@@ -122,7 +122,7 @@ object SparkSubmitOptions {
           "the program will try to download a spark release if this is not provided"),
 
       opt[String]("refMaster")
-        .action((s, c) => c.withRefSparkHome(refSparkHome = s))
+        .action((s, c) => c.withRefMaster(master = s))
         .text("The master option to submit a spark app, e.g. local[*], yarn, spark://IP:PORT"),
 
       note("\nTest System Options"),
@@ -137,7 +137,7 @@ object SparkSubmitOptions {
           "the program will try to download a spark release if this is not provided"),
 
       opt[String]("testMaster")
-        .action((s, c) => c.withRefSparkHome(refSparkHome = s))
+        .action((s, c) => c.withTestMaster(master = s))
         .text("The master option to submit a spark app, e.g. local[*], yarn, spark://IP: PORT"),
 
       note("")
