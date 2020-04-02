@@ -1,8 +1,9 @@
 package org.apache.spark.rqg
 
 import scala.util.Random
-
 import org.apache.spark.internal.Logging
+
+import scala.runtime.Nothing$
 
 object RandomUtils extends Logging {
 
@@ -72,7 +73,8 @@ object RandomUtils extends Logging {
 
   def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
 
-  def nextConstant[T](dataType: DataType[T]): T = getValueGenerator.generateValue(dataType)
+  def nextConstant[T](dataType: DataType[T]): T =
+    if (random.nextInt(2) == 1) getValueGenerator.generateValue(dataType) else null.asInstanceOf[T]
 }
 
 trait WeightedChoice {
