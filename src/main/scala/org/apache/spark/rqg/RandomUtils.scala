@@ -73,8 +73,15 @@ object RandomUtils extends Logging {
 
   def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
 
+  def nextValue[T](dataType: DataType[T]): T =
+    if (random.nextDouble() > RQGConfig.DATA_GENERATOR_NULL.value) {
+      getValueGenerator.generateValue(dataType)
+    } else {
+      null.asInstanceOf[T]
+    }
+
   def nextConstant[T](dataType: DataType[T]): T =
-    if (random.nextInt(2) == 1) getValueGenerator.generateValue(dataType) else null.asInstanceOf[T]
+    getValueGenerator.generateValue(dataType)
 }
 
 trait WeightedChoice {

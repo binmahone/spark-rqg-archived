@@ -90,12 +90,6 @@ case object StringType extends DataType[String] {
   override def sparkType: sparktypes.DataType = sparktypes.StringType
 }
 
-case object NullType extends DataType[Null] {
-  override def typeName = "null"
-
-  override def sparkType: sparktypes.DataType = sparktypes.NullType
-}
-
 case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalType[BigDecimal] {
   require(scale <= precision && precision <= DecimalType.MAX_PRECISION)
 

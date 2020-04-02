@@ -105,7 +105,7 @@ case class DataGenerator(
         val partitionId = TaskContext.getPartitionId()
         val partitionRowCount = math.min(rowCount - partitionId * rowsPerBatch, rowsPerBatch)
         (0 until partitionRowCount).map { _ =>
-          Row.fromSeq(rqgTable.columns.map(c => RandomUtils.nextConstant(c.dataType)))
+          Row.fromSeq(rqgTable.columns.map(c => RandomUtils.nextValue(c.dataType)))
         }.toIterator
       })(RowEncoder(rqgTable.schema)).createOrReplaceTempView(s"temp_${rqgTable.name}")
       sparkSession.sql(s"INSERT OVERWRITE TABLE ${rqgTable.dbName}.${rqgTable.name} " +
