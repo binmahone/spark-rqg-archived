@@ -37,63 +37,70 @@ object QueryGenerator {
     val tables = describeTables(sparkSession, options.dbName)
 
     var queryIdx = 0
-    while (queryIdx < options.queryCount) {
-      val count = math.min(options.queryCount - queryIdx, 100)
-      println(s"Generating $count queries to compare")
-      val queries = (0 until count)
-        .map(_ => Query(QueryContext(
-          rqgConfig = rqgConfig,
-          availableTables = tables)))
+    val count = math.min(options.queryCount - queryIdx, 100)
+    println(s"Generating $count queries to compare")
+    val queries = (0 until count)
+      .map(_ => Query(QueryContext(
+        rqgConfig = rqgConfig,
+        availableTables = tables)))
 
-      val extraSparkConf = rqgConfig.getSparkConfigs.map(
-        entry => entry._1 -> RandomUtils.nextChoice(entry._2)
-      )
-      println("Running queries with randomly generated spark configurations: ")
-      println(extraSparkConf.mkString("\n"))
-      println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Reference Spark version")
-      val refResult = refQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
-      println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Test Spark version")
-      val testResult = testQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
-      println(s"Comparing queries $queryIdx to ${queryIdx + count - 1}")
+    if (options.dryRun) {
+      println("Running in dryRun mode")
+      val queryStrs = queries.map(_.sql) 
+      queryStrs.foreach(println)
+    } else {
+      while (queryIdx < options.queryCount) {
 
-      refResult.zip(testResult).foreach {
-        case (refOutput, testOutput) =>
-          assert(refOutput.sql == testOutput.sql, "Comparing result between different queries")
-          println(s"Comparing query $queryIdx: ${refOutput.sql}")
-          if (refOutput.output.contains("Exception") || testOutput.output.contains("Exception")) {
-            val errorMessage =
-              s"""== Exception occurs while executing query ==
-                 |== Expected Answer ==
-                 |schema: ${refOutput.schema}
-                 |output: ${refOutput.output}
-                 |== Actual Answer ==
-                 |schema: ${testOutput.schema}
-                 |output: ${testOutput.output}
-              """.stripMargin
-            if (options.stopOnCrash) {
-              sys.error(errorMessage)
+        val extraSparkConf = rqgConfig.getSparkConfigs.map(
+          entry => entry._1 -> RandomUtils.nextChoice(entry._2)
+        )
+        println("Running queries with randomly generated spark configurations: ")
+        println(extraSparkConf.mkString("\n"))
+        println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Reference Spark version")
+        val refResult = refQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
+        println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Test Spark version")
+        val testResult = testQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
+        println(s"Comparing queries $queryIdx to ${queryIdx + count - 1}")
+
+        refResult.zip(testResult).foreach {
+          case (refOutput, testOutput) =>
+            assert(refOutput.sql == testOutput.sql, "Comparing result between different queries")
+            println(s"Comparing query $queryIdx: ${refOutput.sql}")
+            if (refOutput.output.contains("Exception") || testOutput.output.contains("Exception")) {
+              val errorMessage =
+                s"""== Exception occurs while executing query ==
+                  |== Expected Answer ==
+                  |schema: ${refOutput.schema}
+                  |output: ${refOutput.output}
+                  |== Actual Answer ==
+                  |schema: ${testOutput.schema}
+                  |output: ${testOutput.output}
+                """.stripMargin
+              if (options.stopOnCrash) {
+                sys.error(errorMessage)
+              } else {
+                println(errorMessage)
+              }
+            } else if (refOutput != testOutput) {
+              val errorMessage =
+                s"""== Result did not match ==
+                  |== Expected Answer ==
+                  |schema: ${refOutput.schema}
+                  |output: ${refOutput.output}
+                  |== Actual Answer ==
+                  |schema: ${testOutput.schema}
+                  |output: ${testOutput.output}
+                """.stripMargin
+              if (options.stopOnMismatch) {
+                sys.error(errorMessage)
+              } else {
+                println(errorMessage)
+              }
             } else {
-              println(errorMessage)
+              println("PASS.")
             }
-          } else if (refOutput != testOutput) {
-            val errorMessage =
-              s"""== Result did not match ==
-                 |== Expected Answer ==
-                 |schema: ${refOutput.schema}
-                 |output: ${refOutput.output}
-                 |== Actual Answer ==
-                 |schema: ${testOutput.schema}
-                 |output: ${testOutput.output}
-              """.stripMargin
-            if (options.stopOnMismatch) {
-              sys.error(errorMessage)
-            } else {
-              println(errorMessage)
-            }
-          } else {
-            println(s"PASS.")
-          }
-          queryIdx += 1
+            queryIdx += 1
+        }
       }
     }
 

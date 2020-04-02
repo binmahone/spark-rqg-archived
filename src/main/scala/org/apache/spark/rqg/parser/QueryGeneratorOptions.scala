@@ -18,7 +18,9 @@ case class QueryGeneratorOptions(
     stopOnMismatch: Boolean = QueryGeneratorOptions.Defaults.stopOnMismatch,
     stopOnCrash: Boolean = QueryGeneratorOptions.Defaults.stopOnCrash,
     queryCount: Int = QueryGeneratorOptions.Defaults.queryCount,
-    configFile: String = QueryGeneratorOptions.Defaults.configFile)
+    configFile: String = QueryGeneratorOptions.Defaults.configFile,
+    // Run mode
+    dryRun: Boolean = QueryGeneratorOptions.Defaults.dryRun)
   extends DatabaseOptions[QueryGeneratorOptions]
   with SparkSubmitOptions[QueryGeneratorOptions] {
 
@@ -56,27 +58,25 @@ object QueryGeneratorOptions {
       import builder._
       OParser.sequence(
         programName("DataGenerator"),
-
         DatabaseOptions.databaseParser,
         SparkSubmitOptions.sparkSubmitParser,
-
         note("Query Generator Options"),
-
+        opt[Boolean]("dryRun")
+          .action((i, c) => c.copy(dryRun = i))
+          .text("dry run will only display but does not excecute query"),
         opt[Int]("randomizationSeed")
           .action((i, c) => c.copy(randomizationSeed = i))
-          .text("the randomization will be initialized with this seed. Using the same seed " +
-            "will produce the same results across runs."),
-
+          .text(
+            "the randomization will be initialized with this seed. Using the same seed " +
+              "will produce the same results across runs."
+          ),
         opt[Int]("queryCount")
           .action((i, c) => c.copy(queryCount = i))
           .text("The number of queries to generate."),
-
         opt[String]("configFile")
           .action((s, c) => c.copy(configFile = s))
           .text("Path to a configuration file with all tested systems."),
-
         note("\nOther Options"),
-
         help("help").text("prints this usage text")
       )
     }
@@ -95,5 +95,7 @@ object QueryGeneratorOptions {
     val stopOnCrash = false
     val queryCount = 100
     val configFile = ""
+    val dryRun = false
   }
+
 }
