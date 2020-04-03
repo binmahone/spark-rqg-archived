@@ -146,7 +146,7 @@ object SparkSubmitOptions {
 
   object Defaults {
     val timeout: Int = 0
-    val refSparVersion: String = "2.4.5"
+    val refSparVersion: String = "3.0.0-preview"
     val refSparkHome: Option[String] = None
     val refMaster: String = "local[*]"
     val testSparkVersion: String = "3.0.0-preview2"
