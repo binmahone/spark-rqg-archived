@@ -74,8 +74,8 @@ object DataGeneratorOptions {
     val randomizationSeed = 1
     val dbName = "default"
     val tableCount = 10
-    val minColumnCount = 1
-    val maxColumnCount = 100
+    val minColumnCount = 100
+    val maxColumnCount = 200
     val minRowCount: Int = math.pow(10, 3).toInt
     val maxRowCount: Int = math.pow(10, 6).toInt
     val dataSources: Seq[DataSources.Value] =
