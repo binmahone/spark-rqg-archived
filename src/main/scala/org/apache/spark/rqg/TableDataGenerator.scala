@@ -28,9 +28,7 @@ object TableDataGenerator {
             os.write(COLUMN_DELIMITER)
           }
           val res = RandomUtils.nextValue(column.dataType)
-          if (res == null) {
-            os.write("null".getBytes())
-          } else {
+          if (res != null) {
             os.write(res.toString.getBytes())
           }
       }
