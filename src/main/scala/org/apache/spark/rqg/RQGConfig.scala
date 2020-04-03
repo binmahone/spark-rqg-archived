@@ -59,15 +59,15 @@ object RQGConfig {
   /** ----------------- QUERY PROFILE ------------------- */
 
   // Category of query profile
-  val QUERY_BOUNDS = s"$QUERY_PROFILE.BOUNDS"
+  val BOUNDS = s"$QUERY_PROFILE.BOUNDS"
   val QUERY_WEIGHTS = s"$QUERY_PROFILE.WEIGHTS"
-  val QUERY_PROBABILITIES = s"$QUERY_PROFILE.PROBABILITIES"
+  val PROBABILITIES = s"$QUERY_PROFILE.PROBABILITIES"
 
   // Bounds
-  val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$QUERY_BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
-  val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$QUERY_BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 2))
-  val SELECT_ITEM_COUNT = RQGConfigEntry(s"$QUERY_BOUNDS.SELECT_ITEM_COUNT", (1, 5))
-  val JOIN_COUNT = RQGConfigEntry(s"$QUERY_BOUNDS.JOIN_COUNT", (0, 2))
+  val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
+  val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 2))
+  val SELECT_ITEM_COUNT = RQGConfigEntry(s"$BOUNDS.SELECT_ITEM_COUNT", (1, 5))
+  val JOIN_COUNT = RQGConfigEntry(s"$BOUNDS.JOIN_COUNT", (0, 2))
 
   // Weights
   private val defaultJoinWeights =
@@ -78,22 +78,22 @@ object RQGConfig {
   val QUERY_DATA_TYPE = RQGConfigEntry(s"$QUERY_WEIGHTS.DATA_TYPE", defaultDataTypeWeights)
 
   // Probabilities
-  val WITH = RQGConfigEntry(s"$QUERY_PROBABILITIES.WITH", 0.0d)
-  val FROM = RQGConfigEntry(s"$QUERY_PROBABILITIES.FROM", 1.0d)
-  val WHERE = RQGConfigEntry(s"$QUERY_PROBABILITIES.WHERE", 0.5d)
-  val GROUP_BY = RQGConfigEntry(s"$QUERY_PROBABILITIES.GROUP_BY", 0.1d)
-  val HAVING = RQGConfigEntry(s"$QUERY_PROBABILITIES.HAVING", 0.25d)
-  val UNION = RQGConfigEntry(s"$QUERY_PROBABILITIES.UNION", 0.1d)
-  val ORDER_BY = RQGConfigEntry(s"$QUERY_PROBABILITIES.ORDER_BY", 0.1d)
+  val WITH = RQGConfigEntry(s"$PROBABILITIES.WITH", 0.0d)
+  val FROM = RQGConfigEntry(s"$PROBABILITIES.FROM", 1.0d)
+  val WHERE = RQGConfigEntry(s"$PROBABILITIES.WHERE", 0.5d)
+  val GROUP_BY = RQGConfigEntry(s"$PROBABILITIES.GROUP_BY", 0.1d)
+  val HAVING = RQGConfigEntry(s"$PROBABILITIES.HAVING", 0.25d)
+  val UNION = RQGConfigEntry(s"$PROBABILITIES.UNION", 0.1d)
+  val ORDER_BY = RQGConfigEntry(s"$PROBABILITIES.ORDER_BY", 0.1d)
 
-  val SELECT_DISTINCT = RQGConfigEntry(s"$QUERY_PROBABILITIES.SELECT_DISTINCT", 0.1d)
+  val SELECT_DISTINCT = RQGConfigEntry(s"$PROBABILITIES.SELECT_DISTINCT", 0.1d)
 
   /** ----------------- DATA GENERATOR PROFILE ------------------- */
 
   // Category of data generator profile
-  val DATA_GENERATOR_WEIGHTS = s"$DATA_GENERATOR_PROFILE.WEIGHTS"
+  val DATA_GENERATOR_PROBABILITIES = s"$DATA_GENERATOR_PROFILE.PROBABILITIES"
 
-  val DATA_GENERATOR_NULL = WeightEntry(s"$DATA_GENERATOR_WEIGHTS.NULL", 0.5d)
+  val DATA_GENERATOR_NULL = WeightEntry(s"$DATA_GENERATOR_PROBABILITIES.NULL", 0.5d)
 
   def load(path: String = ""): RQGConfig = {
     if (path.isEmpty) {
