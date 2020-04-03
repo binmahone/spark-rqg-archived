@@ -74,7 +74,7 @@ object RandomUtils extends Logging {
   def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
 
   def nextValue[T](dataType: DataType[T]): T =
-    if (random.nextDouble() > rqgConfig.getProbability(RQGConfig.DATA_GENERATOR_NULL)) {
+    if (getRandom.nextDouble() > rqgConfig.getProbability(RQGConfig.DATA_GENERATOR_NULL)) {
       getValueGenerator.generateValue(dataType)
     } else {
       null.asInstanceOf[T]
