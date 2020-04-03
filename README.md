@@ -21,8 +21,8 @@ git clone https://github.com/LinhongLiu/spark-rqg.git
 ```
 ./bin/runQueryGenerator --randomizationSeed=10 \
   --queryCount=10 \
-  --testSparkVersion=3.0.0-preview2 --testMaster="local[2]"\
-  --refSparkVersion=3.0.0-preview --refMaster=yarn-cluster
+  --testSparkVersion=3.0.0-preview2 \
+  --refSparkVersion=3.0.0-preview
 # Run ./bin/runQueryGenerator --help for more information
 ```
 
@@ -57,7 +57,7 @@ PASS.
   --queryCount=10 \
   --testSparkVersion=3.0.0-SNAPSHOT --testMaster="local[2]"\
   --testSparkHome="/path/to/spark/spark-3.0.0-SNAPSHOT-bin-hadoop2.7" # just specify a spark home
-  --refSparkVersion=3.0.0-preview --refMaster=yarn-cluster
+  --refSparkVersion=3.0.0-preview2 --refMaster="local[2]"
 ```
 
 ## Package project for distribution
