@@ -6,6 +6,7 @@ import org.apache.spark.internal.Logging
 
 object RandomUtils extends Logging {
 
+  private var rqgConfig: RQGConfig = RQGConfig.load()
   private var randomSeed: Int = new Random().nextInt()
   private var random: Random = _
   private var valueGenerator: ValueGenerator = _
@@ -72,7 +73,15 @@ object RandomUtils extends Logging {
 
   def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
 
-  def nextConstant[T](dataType: DataType[T]): T = getValueGenerator.generateValue(dataType)
+  def nextValue[T](dataType: DataType[T]): T =
+    if (random.nextDouble() > rqgConfig.getProbability(RQGConfig.DATA_GENERATOR_NULL)) {
+      getValueGenerator.generateValue(dataType)
+    } else {
+      null.asInstanceOf[T]
+    }
+
+  def nextConstant[T](dataType: DataType[T]): T =
+    getValueGenerator.generateValue(dataType)
 }
 
 trait WeightedChoice {

@@ -32,7 +32,7 @@ class SelectClause(
           queryContext.aggPreference = AggPreference.PREFER
         }
         val dataType = RandomUtils.choice(
-          queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.DATA_TYPE))
+          queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE))
         val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
         queryContext.allowedNestedExpressionCount = RandomUtils.choice(min, max)
         NamedExpression(queryContext, Some(this), dataType, isLast = true)

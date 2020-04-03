@@ -27,7 +27,12 @@ object TableDataGenerator {
           if (idx > 0) {
             os.write(COLUMN_DELIMITER)
           }
-          os.write(RandomUtils.nextConstant(column.dataType).toString.getBytes())
+          val res = RandomUtils.nextValue(column.dataType)
+          if (res == null) {
+            os.write("null".getBytes())
+          } else {
+            os.write(res.toString.getBytes())
+          }
       }
       os.write('\n')
     }
