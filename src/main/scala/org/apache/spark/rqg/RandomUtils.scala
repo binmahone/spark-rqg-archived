@@ -1,12 +1,12 @@
 package org.apache.spark.rqg
 
 import scala.util.Random
-import org.apache.spark.internal.Logging
 
-import scala.runtime.Nothing$
+import org.apache.spark.internal.Logging
 
 object RandomUtils extends Logging {
 
+  private var rqgConfig: RQGConfig = RQGConfig.load()
   private var randomSeed: Int = new Random().nextInt()
   private var random: Random = _
   private var valueGenerator: ValueGenerator = _
@@ -74,7 +74,7 @@ object RandomUtils extends Logging {
   def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
 
   def nextValue[T](dataType: DataType[T]): T =
-    if (random.nextDouble() > RQGConfig.DATA_GENERATOR_NULL.value) {
+    if (random.nextDouble() > rqgConfig.getProbability(RQGConfig.DATA_GENERATOR_NULL)) {
       getValueGenerator.generateValue(dataType)
     } else {
       null.asInstanceOf[T]

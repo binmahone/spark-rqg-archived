@@ -93,7 +93,7 @@ object RQGConfig {
   // Category of data generator profile
   val DATA_GENERATOR_PROBABILITIES = s"$DATA_GENERATOR_PROFILE.PROBABILITIES"
 
-  val DATA_GENERATOR_NULL = WeightEntry(s"$DATA_GENERATOR_PROBABILITIES.NULL", 0.5d)
+  val DATA_GENERATOR_NULL = RQGConfigEntry(s"$DATA_GENERATOR_PROBABILITIES.NULL", 0.5d)
 
   def load(path: String = ""): RQGConfig = {
     if (path.isEmpty) {
