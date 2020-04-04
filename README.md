@@ -60,6 +60,11 @@ PASS.
   --refSparkVersion=3.0.0-preview2 --refMaster="local[2]"
 ```
 
+## Supported Spark Versions
+Currently we support all spark versions compiled by scala 2.12. For example:
+* Pre-built Spark 3.0 Preview download from apache
+* Self complied Spark 2.4.x with scala 2.12
+
 ## Package project for distribution
 ```
 # create a distributable folder in target/pack and launch scripts for data-generator and query-generator
