@@ -1,5 +1,7 @@
 package org.apache.spark.rqg
 
+import java.sql.{Date, Timestamp}
+
 import org.apache.spark.sql.{types => sparktypes}
 
 trait DataType[T] extends WeightedChoice {
@@ -30,7 +32,9 @@ object DataType {
     FloatType,
     DoubleType,
     StringType,
-    DecimalType()
+    DecimalType(),
+    DateType,
+    TimestampType
   )
 
   val joinableDataTypes: Array[DataType[_]] = Array(
@@ -41,7 +45,9 @@ object DataType {
     FloatType,
     DoubleType,
     StringType,
-    DecimalType()
+    DecimalType(),
+    DateType,
+    TimestampType
   )
 }
 
@@ -76,10 +82,23 @@ case object FloatType extends FractionalType[Float] {
 
   override def sparkType: sparktypes.DataType = sparktypes.FloatType
 }
+
 case object DoubleType extends FractionalType[Double] {
   override def typeName = "double"
 
   override def sparkType: sparktypes.DataType = sparktypes.DoubleType
+}
+
+case object DateType extends DataType[Date] {
+  override def typeName = "date"
+
+  override def sparkType: sparktypes.DataType = sparktypes.DateType
+}
+
+case object TimestampType extends DataType[Timestamp] {
+  override def typeName = "timestamp"
+
+  override def sparkType: sparktypes.DataType = sparktypes.TimestampType
 }
 
 case object StringType extends DataType[String] {
