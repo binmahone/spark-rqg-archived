@@ -4,6 +4,11 @@ import scala.util.Random
 
 import org.apache.spark.internal.Logging
 
+final case class RQGEmptyChoiceException(
+  private val message: String = "",
+  private val cause: Throwable = None.orNull)
+  extends Exception(message, cause)
+
 object RandomUtils extends Logging {
 
   private var rqgConfig: RQGConfig = RQGConfig.load()
@@ -42,6 +47,9 @@ object RandomUtils extends Logging {
   def getSeed: Int = randomSeed
 
   def nextChoice[T](choices: Array[T]): T = {
+    if (choices.isEmpty) {
+      throw RQGEmptyChoiceException("No choices left while trying to generate expression")
+    }
     choices(getRandom.nextInt(choices.length))
   }
 

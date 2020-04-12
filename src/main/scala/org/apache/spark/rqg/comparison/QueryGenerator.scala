@@ -1,14 +1,16 @@
 package org.apache.spark.rqg.comparison
 
 import org.apache.hadoop.fs.Path
-
+import org.apache.spark.internal.Logging
 import org.apache.spark.rqg.ast.{Column, Query, QueryContext, Table}
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.parser.QueryGeneratorOptions
 import org.apache.spark.rqg.runner.SparkSubmitQueryRunner
 import org.apache.spark.sql.SparkSession
 
-object QueryGenerator {
+import scala.collection.mutable.ArrayBuffer
+
+object QueryGenerator extends Logging {
   def main(args: Array[String]): Unit = {
 
     // NOTE: workaround for derby init exception in sbt:
@@ -39,15 +41,27 @@ object QueryGenerator {
     var queryIdx = 0
     val count = math.min(options.queryCount - queryIdx, 100)
     println(s"Generating $count queries to compare")
-    val queries = (0 until count)
-      .map(_ => Query(QueryContext(
-        rqgConfig = rqgConfig,
-        availableTables = tables)))
+
+    var queries = ArrayBuffer[Query]()
+    var successCount = 0;
+    var failedCount = 0;
+    while (successCount < count) {
+      try {
+        queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
+        successCount += 1
+      } catch {
+        case e: RQGEmptyChoiceException =>
+          logInfo(e.toString)
+          failedCount += 1
+      }
+    }
 
     if (options.dryRun) {
       println("Running in dryRun mode")
       val queryStrs = queries.map(_.sql) 
-      queryStrs.foreach(println)
+      queryStrs.zipWithIndex.foreach {
+        case (query, i) => println(f"Query ${i}: ${query}")
+      }
     } else {
       while (queryIdx < options.queryCount) {
 
