@@ -5,8 +5,8 @@ import scala.util.Random
 import org.apache.spark.internal.Logging
 
 final case class RQGEmptyChoiceException(
-  private val message: String = "",
-  private val cause: Throwable = None.orNull)
+    private val message: String = "",
+    private val cause: Throwable = None.orNull)
   extends Exception(message, cause)
 
 object RandomUtils extends Logging {
