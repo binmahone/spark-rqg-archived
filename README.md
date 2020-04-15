@@ -73,3 +73,21 @@ sbt pack
 # create a tar.gz archive in target
 sbt packArchive
 ```
+
+## FAQ
+
+### How to solve the problem of `spark-submit returned with exit code x, See the log4j logs for more detail`?
+
+The Spark RQG use SparkSubmit to run queries and collect results, for this error log, we need to check the detailed exception for SparkSubmit, all the running logs should be located in `spark-rqg/logs`.
+
+### How to deal with the download error?
+
+If the test/refSparkHome isn't set, Spark RQG will download the test/refSparkVersion automatically, just retry the whole command for the downloading error. You can also use your own local Spark version instead of downloading them from maven repo, any local Spark code directory with a successful compilation is acceptable.
+
+### How to handle the failure of `Cannot receive any reply from xxxx:xxxx`?
+
+Sometimes the user will receive this error for the first starting, try to set `SPARK_LOCAL_IP` env to `127.0.0.1` to solve the problem.
+
+### Why I met the scala version related error while using Spark RQG?
+
+It's because we use Scala 2.12 as the default Scala version in RQG to be consistent with Spark 3.0 or newer version. But if you use the existing Spark version before 3.0, you'll get such exception since they used Scala 2.11. To fix this, you need to recompile the old version by 2.12 or change both test and ref version to before or after 3.0.
