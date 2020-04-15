@@ -1,11 +1,17 @@
 package org.apache.spark.rqg
 
 import java.sql.{Date, Timestamp}
-import java.util.concurrent.ThreadLocalRandom
 
 import scala.util.Random
 
 class ValueGenerator(random: Random) {
+
+  def getRandomEpochTime(): Long = {
+    val currentTime = System.currentTimeMillis()
+    val randomVal = random.nextDouble()
+    val randomEpochTime = (randomVal * currentTime).toLong
+    randomEpochTime
+  }
 
   def generateValue[T](dataType: DataType[T]): T = {
     val value = dataType match {
@@ -24,14 +30,10 @@ class ValueGenerator(random: Random) {
       case DoubleType =>
         random.nextDouble()
       case DateType =>
-        val currentTime = System.currentTimeMillis()
-        val randomEpochTime = ThreadLocalRandom.current().nextLong(currentTime)
-        val date = new Date(randomEpochTime)
+        val date = new Date(getRandomEpochTime())
         date
       case TimestampType =>
-        val currentTime = System.currentTimeMillis()
-        val randomEpochTime = ThreadLocalRandom.current().nextLong(currentTime)
-        val timestamp = new Timestamp(randomEpochTime)
+        val timestamp = new Timestamp(getRandomEpochTime())
         timestamp
       case StringType =>
         val length = random.nextInt(StringType.MAX_LENGTH - 1) + 1

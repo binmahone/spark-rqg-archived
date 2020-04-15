@@ -44,7 +44,6 @@ object QueryGenerator extends Logging {
 
     var queries = ArrayBuffer[Query]()
     var successCount = 0;
-    var failedCount = 0;
     while (successCount < count) {
       try {
         queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
@@ -52,7 +51,6 @@ object QueryGenerator extends Logging {
       } catch {
         case e: RQGEmptyChoiceException =>
           logInfo(e.toString)
-          failedCount += 1
       }
     }
 
