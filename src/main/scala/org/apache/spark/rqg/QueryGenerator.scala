@@ -49,6 +49,8 @@ object QueryGenerator {
       case "float" => FloatType
       case "double" => DoubleType
       case "string" => StringType
+      case "date" => DateType
+      case "timestamp" => TimestampType
       case decimalPattern(precision, scale) => DecimalType(precision.toInt, scale.toInt)
     }
   }

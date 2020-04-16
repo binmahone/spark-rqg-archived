@@ -49,7 +49,8 @@ object RQGConfig {
   private val defaultDataTypeWeights =
     WeightEntry("Int", 10d) :: WeightEntry("TinyInt", 2d) :: WeightEntry("SmallInt", 2d) ::
       WeightEntry("BigInt", 2d) :: WeightEntry("Float", 2d) :: WeightEntry("Double", 5d) ::
-      WeightEntry("Boolean", 1d) :: WeightEntry("Decimal", 10d) :: WeightEntry("String", 2d) :: Nil
+      WeightEntry("Boolean", 1d) :: WeightEntry("Decimal", 10d) :: WeightEntry("String", 2d) ::
+      WeightEntry("Date", 7d) :: WeightEntry("Timestamp", 8d) :: Nil
 
   // Config keys
   val DATA_GENERATOR_PROFILE = "DATA_GENERATOR_PROFILE"

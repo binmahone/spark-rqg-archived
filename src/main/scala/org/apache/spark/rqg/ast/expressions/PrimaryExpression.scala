@@ -95,7 +95,7 @@ class Constant(
   }
 
   override def sql: String = requiredDataType match {
-    case StringType => s"'${value.toString}'"
+    case StringType | DateType | TimestampType => s"'${value.toString}'"
     case _ => value.toString
   }
 
