@@ -1,7 +1,5 @@
 package org.apache.spark.rqg.ast.expressions
 
-import java.text.DecimalFormat
-
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QueryContext, Signature, TreeNode}
 import org.apache.spark.rqg.ast.functions._
@@ -56,6 +54,8 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       choices.filter(_.canGenerateAggFunc)
     } else if (querySession.needGenerateColumnExpression) {
       choices.filter(_ == ColumnReference)
+    } else if (querySession.needToGenerateConstant) {
+      choices.filter(_ == Constant)
     } else if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else {
@@ -94,9 +94,13 @@ class Constant(
     RandomUtils.nextConstant(requiredDataType)
   }
 
-  override def sql: String = requiredDataType match {
-    case StringType | DateType | TimestampType => s"'${value.toString}'"
-    case _ => value.toString
+  override def sql: String = {
+    requiredDataType match {
+      case StringType => s"'${value.toString}'"
+      case DateType => s"to_date('${value.toString}')"
+      case TimestampType => s"to_timestamp('${value.toString}')"
+      case _ => value.toString
+    }
   }
 
   override def name: String = "constant"
@@ -324,7 +328,7 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
     new ColumnReference(querySession, parent, requiredDataType)
   }
 
-  override def canGeneratePrimitive: Boolean = false
+  override def canGeneratePrimitive: Boolean = true
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     querySession.dataTypesInAvailableRelations

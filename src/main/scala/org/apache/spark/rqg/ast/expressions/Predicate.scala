@@ -37,7 +37,7 @@ object Predicate extends PredicateGenerator[Predicate] {
       querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): Predicate = {
-
+    querySession.needToGenerateConstant = true
     val choice = RandomUtils.nextChoice(choices)
     choice.apply(querySession, parent, requiredDataType)
   }
