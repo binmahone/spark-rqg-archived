@@ -324,7 +324,7 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
     new ColumnReference(querySession, parent, requiredDataType)
   }
 
-  override def canGeneratePrimitive: Boolean = true
+  override def canGeneratePrimitive: Boolean = false
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
     querySession.dataTypesInAvailableRelations

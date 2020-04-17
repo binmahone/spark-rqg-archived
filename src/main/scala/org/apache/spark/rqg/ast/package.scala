@@ -44,6 +44,8 @@ package object ast {
         Signature(SmallIntType, Seq(SmallIntType)),
         Signature(FloatType, Seq(FloatType)),
         Signature(DecimalType(), Seq(DecimalType())),
+        Signature(DateType, Seq(DateType)),
+        Signature(TimestampType, Seq(TimestampType)),
         Signature(StringType, Seq(StringType))), isAgg = true)
     val ABS = Function("abs", Seq(Signature(IntType, Seq(IntType))), isAgg = false)
   }

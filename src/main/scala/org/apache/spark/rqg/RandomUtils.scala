@@ -79,7 +79,7 @@ object RandomUtils extends Logging {
 
   def nextBoolean(): Boolean = getRandom.nextBoolean()
 
-  def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() >= probability
+  def nextBoolean(probability: Double): Boolean = getRandom.nextDouble() <= probability
 
   def nextValue[T](dataType: DataType[T]): T =
     if (getRandom.nextDouble() > rqgConfig.getProbability(RQGConfig.DATA_GENERATOR_NULL)) {
