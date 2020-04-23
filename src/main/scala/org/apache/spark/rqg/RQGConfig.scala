@@ -66,7 +66,7 @@ object RQGConfig {
 
   // Bounds
   val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
-  val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 2))
+  val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 5))
   val SELECT_ITEM_COUNT = RQGConfigEntry(s"$BOUNDS.SELECT_ITEM_COUNT", (1, 5))
   val JOIN_COUNT = RQGConfigEntry(s"$BOUNDS.JOIN_COUNT", (0, 2))
 
@@ -81,7 +81,7 @@ object RQGConfig {
   // Probabilities
   val WITH = RQGConfigEntry(s"$PROBABILITIES.WITH", 0.0d)
   val FROM = RQGConfigEntry(s"$PROBABILITIES.FROM", 1.0d)
-  val WHERE = RQGConfigEntry(s"$PROBABILITIES.WHERE", 0.5d)
+  val WHERE = RQGConfigEntry(s"$PROBABILITIES.WHERE", 0.9d)
   val GROUP_BY = RQGConfigEntry(s"$PROBABILITIES.GROUP_BY", 0.1d)
   val HAVING = RQGConfigEntry(s"$PROBABILITIES.HAVING", 0.25d)
   val UNION = RQGConfigEntry(s"$PROBABILITIES.UNION", 0.1d)

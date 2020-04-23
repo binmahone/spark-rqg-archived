@@ -43,16 +43,19 @@ object QueryGenerator extends Logging {
     println(s"Generating $count queries to compare")
 
     var queries = ArrayBuffer[Query]()
-    var successCount = 0;
-    while (successCount < count) {
+    var successCount = 0
+    var failedCount = 0
+    while (successCount < count && failedCount < count) {
       try {
         queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
         successCount += 1
       } catch {
         case e: RQGEmptyChoiceException =>
           logInfo(e.toString)
+          failedCount += 1
       }
     }
+    println(s"Failed $failedCount times while generating queries")
 
     if (options.dryRun) {
       println("Running in dryRun mode")

@@ -56,7 +56,9 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
     RandomUtils.nextChoice(filteredChoices).apply(queryContext, parent, requiredDataType, isLast)
   }
 
-  private def choices = Array(LogicalNot, Predicated, LogicalBinary)
+  private def choices = {
+      Array(LogicalNot, Predicated, LogicalBinary)
+  }
 
   override def canGeneratePrimitive: Boolean = true
 
@@ -210,10 +212,9 @@ class Predicated(
   // itself as "Maybe" primitive expression, i.e. it can generate Constant. Also, if required
   // data type is not boolean, we don't use predicate. If we need generate relational expression,
   // don't use predicate as well.
-  queryContext.requiredRelationalExpressionCount -= 1
-
   private val usePredicate =
     !queryContext.needGeneratePrimitiveExpression &&
+      !queryContext.needGenerateRelationalExpression &&
       requiredDataType == BooleanType &&
       RandomUtils.nextBoolean()
 

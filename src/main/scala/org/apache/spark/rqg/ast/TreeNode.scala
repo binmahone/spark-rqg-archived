@@ -53,6 +53,7 @@ case class QueryContext(
     var allowedNestedExpressionCount: Int = 5,
     var requiredRelationalExpressionCount: Int = 0,
     var requiredColumnCount: Int = 0,
+    var needToGenerateConstant: Boolean = false,
     var needColumnFromJoiningRelation: Boolean = false,
     var aggPreference: Int = AggPreference.FORBID,
     var nextAliasId: Int = 0) {
