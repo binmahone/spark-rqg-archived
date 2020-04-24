@@ -36,6 +36,11 @@ package object ast {
         Signature(BigIntType, Seq(IntType)),
         Signature(DoubleType, Seq(FloatType)),
         Signature(DoubleType, Seq(DoubleType))), isAgg = true)
+    val MAX = Function("max",
+      Seq(
+        Signature(BigIntType, Seq(IntType)),
+        Signature(DoubleType, Seq(FloatType)),
+        Signature(DoubleType, Seq(DoubleType))), isAgg = true)
     val FIRST = Function("first",
       Seq(
         Signature(BooleanType, Seq(BooleanType)),
@@ -47,6 +52,7 @@ package object ast {
         Signature(DateType, Seq(DateType)),
         Signature(TimestampType, Seq(TimestampType)),
         Signature(StringType, Seq(StringType))), isAgg = true)
+
     val ABS = Function("abs", Seq(Signature(IntType, Seq(IntType))), isAgg = false)
   }
 

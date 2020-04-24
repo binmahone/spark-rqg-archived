@@ -228,7 +228,13 @@ class FunctionCall(
     arguments
   }
 
-  override def sql: String = s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
+  override def sql: String = {
+    if (func.isAgg && func.name != "first" && RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.DISTINCT_IN_FUNCTION))) {
+      s"${func.name}(distinct(${arguments.map(_.sql).mkString(", ")}))"
+    } else {
+      s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
+    }
+  }
 
   override def name: String = dataType match {
     case _: DecimalType => "func_decimal"
@@ -256,7 +262,7 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
     new FunctionCall(querySession, parent, requiredDataType, isLast)
   }
 
-  private def supportedFunctions = Array(COUNT, SUM, ABS, FIRST)
+  private def supportedFunctions = Array(COUNT, SUM, ABS, FIRST, MAX)
 
   override def canGeneratePrimitive: Boolean = false
 

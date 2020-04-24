@@ -42,12 +42,12 @@ object QueryGenerator extends Logging {
     val count = math.min(options.queryCount - queryIdx, 100)
     println(s"Generating $count queries to compare")
 
-    var queries = ArrayBuffer[Query]()
+    var queries = ArrayBuffer[String]()
     var successCount = 0
     var failedCount = 0
     while (successCount < count && failedCount < count) {
       try {
-        queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
+        queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables)).sql
         successCount += 1
       } catch {
         case e: RQGEmptyChoiceException =>
@@ -59,7 +59,7 @@ object QueryGenerator extends Logging {
 
     if (options.dryRun) {
       println("Running in dryRun mode")
-      val queryStrs = queries.map(_.sql) 
+      val queryStrs = queries
       queryStrs.zipWithIndex.foreach {
         case (query, i) => println(f"Query ${i}: ${query}")
       }
@@ -72,9 +72,9 @@ object QueryGenerator extends Logging {
         println("Running queries with randomly generated spark configurations: ")
         println(extraSparkConf.mkString("\n"))
         println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Reference Spark version")
-        val refResult = refQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
+        val refResult = refQueryRunner.runQueries(queries, extraSparkConf)
         println(s"Running queries $queryIdx to ${queryIdx + count - 1} in Test Spark version")
-        val testResult = testQueryRunner.runQueries(queries.map(_.sql), extraSparkConf)
+        val testResult = testQueryRunner.runQueries(queries, extraSparkConf)
         println(s"Comparing queries $queryIdx to ${queryIdx + count - 1}")
 
         refResult.zip(testResult).foreach {
