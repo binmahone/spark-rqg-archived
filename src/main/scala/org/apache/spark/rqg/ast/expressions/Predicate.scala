@@ -1,7 +1,8 @@
 package org.apache.spark.rqg.ast.expressions
 
-import org.apache.spark.rqg.{DataType, RandomUtils}
-import org.apache.spark.rqg.ast.{PredicateGenerator, QueryContext, TreeNode}
+import org.apache.spark.rqg.ast.clauses.WhereClause
+import org.apache.spark.rqg.{DataType, RQGConfig, RandomUtils}
+import org.apache.spark.rqg.ast.{NestedQuery, PredicateGenerator, QueryContext, TreeNode}
 
 /**
  * predicate
@@ -20,13 +21,9 @@ import org.apache.spark.rqg.ast.{PredicateGenerator, QueryContext, TreeNode}
  * For now, we only support BETWEEN, IN, LIKE, NULL predicate
  */
 trait Predicate extends TreeNode {
-  val notOption: Option[String] = if (RandomUtils.nextBoolean()) {
-    Some("NOT")
-  } else {
-    None
-  }
-
   def name: String
+
+  def isAgg: Boolean
 }
 
 /**
@@ -37,11 +34,10 @@ object Predicate extends PredicateGenerator[Predicate] {
       querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): Predicate = {
-    querySession.needToGenerateConstant = true
     val choice = RandomUtils.nextChoice(choices)
-    choice.apply(querySession, parent, requiredDataType)
+    val predicate = choice.apply(querySession, parent, requiredDataType)
+    predicate
   }
-
   private def choices = {
     Array(BetweenPredicate, InPredicate, LikePredicate, NullPredicate)
   }
@@ -66,9 +62,11 @@ class BetweenPredicate(
     ValueExpression(queryContext, Some(this), requiredDataType)
   }
 
-  override def sql: String = s"${notOption.getOrElse("")} BETWEEN ${lower.sql} AND ${upper.sql}"
+  override def sql: String = s"${RandomUtils.getNotOrEmpty()} BETWEEN ${lower.sql} AND ${upper.sql}"
 
   override def name: String = "between_predicate"
+
+  override def isAgg: Boolean = lower.isAgg || upper.isAgg
 }
 
 /**
@@ -91,16 +89,43 @@ class InPredicate(
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
 
+  var subQuery: Option[NestedQuery] = generateSubQuery()
   val expressionSeq: Seq[BooleanExpression] = generateExpressionSeq
+
+    private def generateSubQuery(): Option[NestedQuery] = {
+      if (parent.get.parent.get.isInstanceOf[WhereClause] && RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.NESTED_IN))) {
+        val ans = Some(NestedQuery(
+          QueryContext(availableTables = queryContext.availableTables,
+            rqgConfig = queryContext.rqgConfig,
+            allowedNestedSubQueryCount = queryContext.allowedNestedSubQueryCount,
+            nextAliasId = queryContext.nextAliasId + 1),
+          Some(this), Some(requiredDataType)))
+        return ans
+      }
+      None
+    }
 
   private def generateExpressionSeq = {
     Seq(BooleanExpression(queryContext, Some(this), requiredDataType))
   }
 
   override def sql: String =
-    s"${notOption.getOrElse("")} IN (${expressionSeq.map(_.sql).mkString(", ")})"
+    if (subQuery.isDefined) {
+      s"${RandomUtils.getNotOrEmpty()} IN (${subQuery.get.sql})"
+    } else {
+      s"${RandomUtils.getNotOrEmpty()} IN (${expressionSeq.map(_.sql).mkString(", ")})"
+    }
 
   override def name: String = "in_predicate"
+
+  override def isAgg: Boolean = {
+    for (x <- expressionSeq) {
+      if (x.isAgg) {
+        return true
+      }
+    }
+    false
+  }
 }
 
 /**
@@ -124,9 +149,11 @@ class LikePredicate(
     requiredDataType: DataType[_]) extends Predicate {
 
   val valueExpression = ValueExpression(queryContext, Some(this), requiredDataType)
-  override def sql: String = s"${notOption.getOrElse("")} LIKE ${valueExpression.sql}"
+  override def sql: String = s"${RandomUtils.getNotOrEmpty()} LIKE ${valueExpression.sql}"
 
   override def name: String = "like_predicate"
+
+  override def isAgg: Boolean = valueExpression.isAgg
 }
 
 /**
@@ -148,9 +175,11 @@ class NullPredicate(
     val queryContext: QueryContext,
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends Predicate {
-  override def sql: String = s"IS ${notOption.getOrElse("")} NULL"
+  override def sql: String = s"IS ${RandomUtils.getNotOrEmpty()} NULL"
 
   override def name: String = "null_predicate"
+
+  override def isAgg: Boolean = false
 }
 
 /**

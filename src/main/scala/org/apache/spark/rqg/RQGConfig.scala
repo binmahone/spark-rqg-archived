@@ -88,6 +88,7 @@ object RQGConfig {
   val ORDER_BY = RQGConfigEntry(s"$PROBABILITIES.ORDER_BY", 0.1d)
 
   val SELECT_DISTINCT = RQGConfigEntry(s"$PROBABILITIES.SELECT_DISTINCT", 0.5d)
+  val NESTED_IN = RQGConfigEntry(s"$PROBABILITIES.NESTED_IN", 0.9d)
   val DISTINCT_IN_FUNCTION = RQGConfigEntry(s"$PROBABILITIES.DISTINCT_IN_FUNCTION", 0.5d)
 
   /** ----------------- DATA GENERATOR PROFILE ------------------- */

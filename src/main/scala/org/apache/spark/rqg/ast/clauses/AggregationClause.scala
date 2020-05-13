@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.clauses
 
 import org.apache.spark.rqg.RandomUtils
-import org.apache.spark.rqg.ast.{Query, QueryContext, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{NestedQuery, Query, QueryContext, TreeNode, TreeNodeGenerator}
 
 /**
  * aggregationClause
@@ -31,6 +31,9 @@ class AggregationClause(
       case Some(query: Query) =>
         query.selectClause.namedExpressionSeq.filterNot(_.isAgg).map(_.alias.get) ++
           query.selectClause.namedExpressionSeq.filter(_.isAgg).flatMap(_.nonAggColumns).map(_.sql)
+      case Some(nestedQuery: NestedQuery) =>
+        nestedQuery.selectClause.namedExpressionSeq.filterNot(_.isAgg).map(_.alias.get) ++
+          nestedQuery.selectClause.namedExpressionSeq.filter(_.isAgg).flatMap(_.nonAggColumns).map(_.sql)
       case _ =>
         throw new IllegalArgumentException("AggregationClause's parent is not Query")
     }
@@ -54,7 +57,7 @@ object AggregationClause extends TreeNodeGenerator[AggregationClause] {
       querySession: QueryContext,
       parent: Option[TreeNode]): AggregationClause = {
 
-    require(parent.forall(_.isInstanceOf[Query]), "AggregationClause can only be child of Query")
+    require(parent.forall(x => x.isInstanceOf[Query] || x.isInstanceOf[NestedQuery]), "AggregationClause can only be child of Query")
     new AggregationClause(querySession, parent)
   }
 }

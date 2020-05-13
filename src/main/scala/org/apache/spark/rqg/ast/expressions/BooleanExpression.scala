@@ -2,6 +2,7 @@ package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg.{BooleanType, DataType, RandomUtils}
 import org.apache.spark.rqg.ast._
+import org.apache.spark.rqg.ast.clauses.SelectClause
 import org.apache.spark.rqg.ast.operators._
 
 /**
@@ -48,6 +49,8 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       choices.filter(_.canGenerateRelational)
     } else if (queryContext.needGenerateAggFunction) {
       choices.filter(_.canGenerateAggFunc)
+    } else if (queryContext.allowedNestedSubQueryCount <= 0 || checkIfParentIsSelectClause(parent)) {
+      choices.filterNot(_ == ExistQuery)
     } else if (queryContext.allowedNestedExpressionCount > 0 && isLast) {
       choices.filter(_.canGenerateNested)
     } else {
@@ -56,8 +59,19 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
     RandomUtils.nextChoice(filteredChoices).apply(queryContext, parent, requiredDataType, isLast)
   }
 
+  def checkIfParentIsSelectClause(parent: Option[TreeNode]): Boolean = {
+    if (parent.isEmpty) {
+      return false
+    }
+    if (parent.get.isInstanceOf[SelectClause]) {
+      return true
+    }
+    checkIfParentIsSelectClause(parent.get.parent)
+  }
+
+
   private def choices = {
-      Array(LogicalNot, Predicated, LogicalBinary)
+      Array(LogicalNot, ExistQuery, Predicated, LogicalBinary)
   }
 
   override def canGeneratePrimitive: Boolean = true
@@ -253,7 +267,14 @@ class Predicated(
 
   override def name: String = s"${valueExpression.name}${predicateOption.map("_" + _.name).getOrElse("")}"
 
-  override def isAgg: Boolean = valueExpression.isAgg
+  override def isAgg: Boolean = {
+    for (x <- predicateOption) {
+      if (x.isAgg) {
+        return true
+      }
+    }
+    valueExpression.isAgg
+  }
 
   override def columns: Seq[ColumnReference] = valueExpression.columns
 
@@ -283,4 +304,59 @@ object Predicated extends ExpressionGenerator[Predicated] {
   override def canGenerateNested: Boolean = true
 
   override def canGenerateAggFunc: Boolean = true
+}
+
+class ExistQuery(
+    val queryContext: QueryContext,
+    val parent: Option[TreeNode],
+    requiredDataType: DataType[_]) extends BooleanExpression {
+
+  private val subQuery = generateSubQuery
+
+  private def generateSubQuery: NestedQuery = {
+    NestedQuery(
+      QueryContext(availableTables = queryContext.availableTables,
+        rqgConfig = queryContext.rqgConfig,
+        allowedNestedSubQueryCount = queryContext.allowedNestedSubQueryCount,
+        nextAliasId = queryContext.nextAliasId + 1),
+      Some(this),
+      Some(requiredDataType))
+  }
+
+  override def sql: String = s"EXISTS (${subQuery.sql})"
+
+  override def name: String = "subQuery_primary"
+
+  override def dataType: DataType[_] = requiredDataType
+
+  override def isAgg: Boolean = true
+
+  override def columns: Seq[ColumnReference] = Seq.empty
+
+  override def nonAggColumns: Seq[ColumnReference] = Seq.empty
+}
+
+/**
+ * SubQuery generator
+ */
+object ExistQuery extends ExpressionGenerator[ExistQuery] {
+  override def apply(
+      querySession: QueryContext,
+      parent: Option[TreeNode],
+      requiredDataType: DataType[_],
+      isLast: Boolean): ExistQuery = {
+    new ExistQuery(querySession, parent, requiredDataType)
+  }
+
+  override def canGeneratePrimitive: Boolean = false
+
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
+    DataType.supportedDataTypes
+  }
+
+  override def canGenerateRelational: Boolean = false
+
+  override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = false
 }

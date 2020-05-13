@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, QueryContext, Signature, TreeNode}
+import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, NestedQuery, QueryContext, Signature, TreeNode}
 import org.apache.spark.rqg.ast.functions._
 
 /**
@@ -50,19 +50,39 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): PrimaryExpression = {
 
+    val parentIsPredicate = checkIfParentIsPredicate(parent)
+
     val filteredChoices = (if (querySession.needGenerateAggFunction) {
       choices.filter(_.canGenerateAggFunc)
     } else if (querySession.needGenerateColumnExpression) {
       choices.filter(_ == ColumnReference)
-    } else if (querySession.needToGenerateConstant) {
-      choices.filter(_ == Constant)
+    } else if (querySession.allowedNestedSubQueryCount <= 0 || parentIsPredicate) {
+      var x = choices
+      if (parentIsPredicate) {
+        x = x.filterNot(_ == ColumnReference)
+      }
+      if (querySession.allowedNestedSubQueryCount <= 0) {
+        x = x.filterNot(_ == SubQuery)
+      }
+      x
     } else if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else {
       choices
     }).filter(_.possibleDataTypes(querySession).exists(requiredDataType.acceptsType))
 
-    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+    val random = RandomUtils.nextChoice(filteredChoices)
+    random.apply(querySession, parent, requiredDataType, isLast)
+  }
+
+  def checkIfParentIsPredicate(parent: Option[TreeNode]): Boolean = {
+    if (parent.isEmpty) {
+      return false
+    }
+    if (parent.get.isInstanceOf[Predicate]) {
+      return true
+    }
+    checkIfParentIsPredicate(parent.get.parent)
   }
 
   override def canGeneratePrimitive: Boolean = true
@@ -73,7 +93,7 @@ object PrimaryExpression extends ExpressionGenerator[PrimaryExpression] {
     choices.flatMap(_.possibleDataTypes(querySession)).distinct
   }
 
-  def choices = Array(Constant, ColumnReference, Star, FunctionCall)
+  def choices = Array(Constant, ColumnReference, Star, FunctionCall, SubQuery)
 
   override def canGenerateNested: Boolean = false
 
@@ -347,3 +367,60 @@ object ColumnReference extends ExpressionGenerator[ColumnReference] {
   override def canGenerateAggFunc: Boolean = false
 }
 
+class SubQuery(
+   val queryContext: QueryContext,
+   val parent: Option[TreeNode],
+   requiredDataType: DataType[_]) extends PrimaryExpression {
+
+  private val subQuery = generateSubQuery
+
+  private def generateSubQuery: NestedQuery = {
+    NestedQuery(
+      QueryContext(availableTables = queryContext.availableTables,
+        rqgConfig = queryContext.rqgConfig,
+        allowedNestedSubQueryCount = queryContext.allowedNestedSubQueryCount,
+        nextAliasId = queryContext.nextAliasId + 1),
+      Some(this),
+      Some(requiredDataType))
+  }
+
+  override def sql: String = s"(${subQuery.sql})"
+
+  override def name: String = "subQuery_primary"
+
+  override def dataType: DataType[_] = requiredDataType
+
+  // I think the value here does not really matters. For ex: if another expression
+  // aggregate the subquery like MAX(SELECT ....) then that agg function call will return True
+  // upward so the value here does not really matter.
+  override def isAgg: Boolean = true
+
+  override def columns: Seq[ColumnReference] = Seq.empty
+
+  override def nonAggColumns: Seq[ColumnReference] = Seq.empty
+}
+
+/**
+ * SubQuery generator
+ */
+object SubQuery extends ExpressionGenerator[SubQuery] {
+  override def apply(
+      querySession: QueryContext,
+      parent: Option[TreeNode],
+      requiredDataType: DataType[_],
+      isLast: Boolean): SubQuery = {
+    new SubQuery(querySession, parent, requiredDataType)
+  }
+
+  override def canGeneratePrimitive: Boolean = false
+
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
+    DataType.supportedDataTypes
+  }
+
+  override def canGenerateRelational: Boolean = false
+
+  override def canGenerateNested: Boolean = false
+
+  override def canGenerateAggFunc: Boolean = false
+}

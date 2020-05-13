@@ -90,6 +90,14 @@ object RandomUtils extends Logging {
 
   def nextConstant[T](dataType: DataType[T]): T =
     getValueGenerator.generateValue(dataType)
+
+  def getNotOrEmpty(): String = {
+    if (nextBoolean()) {
+      "NOT"
+    } else {
+      ""
+    }
+  }
 }
 
 trait WeightedChoice {

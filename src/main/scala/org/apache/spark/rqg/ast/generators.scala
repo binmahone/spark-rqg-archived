@@ -21,6 +21,14 @@ trait TreeNodeGenerator[T] extends Generator[T] {
 }
 
 /**
+ * SubQuery needs to have a return type. Therefore, NestedQuery and Select Clause
+ * should extends this class
+ */
+trait TreeNodeWithParent[T] extends Generator[T] {
+  def apply(querySession: QueryContext, parent: Option[TreeNode], requiredDataType: Option[DataType[_]]): T
+}
+
+/**
  * All kinds of RelationPrimary generator extends this, such as:
  * TableReference, AliasedQuery, FunctionTable. For now, we only support TableReference
  */

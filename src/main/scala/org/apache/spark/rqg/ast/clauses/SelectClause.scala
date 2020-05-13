@@ -1,8 +1,8 @@
 package org.apache.spark.rqg.ast.clauses
 
-import org.apache.spark.rqg.{RQGConfig, RandomUtils}
+import org.apache.spark.rqg.{DataType, RQGConfig, RandomUtils}
 import org.apache.spark.rqg.ast.expressions.NamedExpression
-import org.apache.spark.rqg.ast.{AggPreference, QueryContext, TreeNode, TreeNodeGenerator}
+import org.apache.spark.rqg.ast.{AggPreference, NestedQuery, QueryContext, TreeNodeWithParent, TreeNode}
 
 /**
  * selectClause
@@ -13,6 +13,7 @@ import org.apache.spark.rqg.ast.{AggPreference, QueryContext, TreeNode, TreeNode
  */
 class SelectClause(
     val queryContext: QueryContext,
+    val requiredDataType: Option[DataType[_]],
     val parent: Option[TreeNode]) extends TreeNode {
 
   val setQuantifier: Option[String] =
@@ -23,20 +24,31 @@ class SelectClause(
     }
   val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
 
-  private def generateNamedExpressionSeq: Seq[NamedExpression] = {
-    val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
-    (0 until RandomUtils.choice(min, max))
-      .map { _ =>
+  private def generate(minSelectCount: Int, maxSelectCount: Int, dataType: DataType[_]): Seq[NamedExpression] = {
+    (0 until RandomUtils.choice(minSelectCount, maxSelectCount))
+      .map { _ => {
         val useAgg = RandomUtils.nextBoolean()
         if (useAgg) {
           queryContext.aggPreference = AggPreference.PREFER
         }
-        val dataType = RandomUtils.choice(
-          queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE))
-        val (min, max) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
-        queryContext.allowedNestedExpressionCount = RandomUtils.choice(min, max)
+        val (minNested, maxNested) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+        queryContext.allowedNestedExpressionCount = RandomUtils.choice(minNested, maxNested)
         NamedExpression(queryContext, Some(this), dataType, isLast = true)
-      }
+      }}
+  }
+
+  private def generateNamedExpressionSeq: Seq[NamedExpression] = {
+    var (min, max) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
+    val dataType = requiredDataType.getOrElse(RandomUtils.choice(
+      queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE)))
+    // TODO: Only if it is a scalar subquery we can only generate at most one column, this can
+    //  be done after the function framework is done as scalar subquery should be generated
+    //  inside a aggregating function
+    if (parent.get.isInstanceOf[NestedQuery]) {
+      min = 1
+      max = 1
+    }
+    generate(min, max, dataType)
   }
 
   override def sql: String = s"SELECT " +
@@ -47,10 +59,11 @@ class SelectClause(
 /**
  * SelectClause generator
  */
-object SelectClause extends TreeNodeGenerator[SelectClause] {
+object SelectClause extends TreeNodeWithParent[SelectClause] {
   def apply(
       querySession: QueryContext,
-      parent: Option[TreeNode]): SelectClause = {
-    new SelectClause(querySession, parent)
+      parent: Option[TreeNode],
+      requiredDataType: Option[DataType[_]] = None): SelectClause = {
+    new SelectClause(querySession, requiredDataType, parent)
   }
 }
