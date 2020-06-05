@@ -3,6 +3,9 @@ package org.apache.spark.rqg
 import java.sql.{Date, Timestamp}
 
 import scala.util.Random
+import org.apache.spark.sql.{Row, types => sparktypes}
+
+import scala.collection.mutable
 
 class ValueGenerator(random: Random) {
 
@@ -11,6 +14,34 @@ class ValueGenerator(random: Random) {
     val randomVal = random.nextDouble()
     val randomEpochTime = (randomVal * currentTime).toLong
     randomEpochTime
+  }
+
+  /**
+   * Generate value based on spark DataType
+   *
+   * @param dataType The dataType
+   * @return A value of Scala type depends on spark type
+   */
+  def generateWithSparkType(dataType: sparktypes.DataType): Any = {
+    // First try to filter with primitives type
+    val innerTypes = DataType.supportedDataTypes.filter(dt => dt.sparkType == dataType)
+    if (!innerTypes.isEmpty) {
+      // Found primitive type
+      val innerType = innerTypes.head
+      generateValue(innerType)
+    } else {
+      // Cannot find primitive type, must be complex type
+      val complexType: DataType[_] = if (dataType.isInstanceOf[sparktypes.ArrayType]) {
+        ArrayType(dataType.asInstanceOf[sparktypes.ArrayType].elementType)
+      } else if(dataType.isInstanceOf[sparktypes.MapType]) {
+        val keyType = dataType.asInstanceOf[sparktypes.MapType].keyType
+        val valType = dataType.asInstanceOf[sparktypes.MapType].valueType
+        MapType(keyType, valType)
+      } else {
+        StructType(dataType.asInstanceOf[sparktypes.StructType].fields)
+      }
+      generateValue(complexType)
+    }
   }
 
   def generateValue[T](dataType: DataType[T]): T = {
@@ -45,8 +76,28 @@ class ValueGenerator(random: Random) {
         sb.toString
       case d: DecimalType =>
         BigDecimal((random.nextLong() % d.bound) / d.fractional)
+      case a: ArrayType =>
+        val randomLength = random.nextInt(5) + 1
+        (0 to randomLength).toArray.map(_ => generateWithSparkType(a.innerType))
+      case m: MapType =>
+        val randomLength = random.nextInt(5) + 1
+        // generate two lists of key and value based the their types
+        val keyList = (0 to randomLength).toArray.map(_ => generateWithSparkType(m.keyType))
+        val valList = (0 to randomLength).toArray.map(_ => generateWithSparkType(m.valueType))
+
+        val res = mutable.Map[T, T]()
+
+        for (i <- 0 to randomLength) {
+          res += (keyList(i).asInstanceOf[T] -> valList(i).asInstanceOf[T])
+        }
+        return res.asInstanceOf[T]
+      case s: StructType =>
+        val array = s.fields.map(x => {
+          generateWithSparkType(x.dataType)
+        })
+        Row.fromSeq(array)
       case x =>
-        // TODO: Date, Timestamp, Char, Varchar, Binary, Interval
+        // TODO: Char, Varchar, Binary, Interval
         throw new NotImplementedError(s"data type $x not supported yet")
     }
     value.asInstanceOf[T]

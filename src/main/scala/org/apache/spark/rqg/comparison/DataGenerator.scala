@@ -105,7 +105,9 @@ case class DataGenerator(
         val partitionId = TaskContext.getPartitionId()
         val partitionRowCount = math.min(rowCount - partitionId * rowsPerBatch, rowsPerBatch)
         (0 until partitionRowCount).map { _ =>
-          Row.fromSeq(rqgTable.columns.map(c => RandomUtils.nextValue(c.dataType)))
+          Row.fromSeq(rqgTable.columns.map(c => {
+            RandomUtils.nextValue(c.dataType)
+          }))
         }.toIterator
       })(RowEncoder(rqgTable.schema)).createOrReplaceTempView(s"temp_${rqgTable.name}")
       sparkSession.sql(s"INSERT OVERWRITE TABLE ${rqgTable.dbName}.${rqgTable.name} " +
@@ -156,7 +158,20 @@ case class DataGenerator(
             val precision = RandomUtils.choice(4, 20)
             val scale = RandomUtils.choice(0, precision)
             d.copy(precision = precision, scale = scale)
-
+          case a: ArrayType => {
+            val nestedCount = RandomUtils.choice(0, 2)
+            ArrayType(RandomUtils.generateRandomSparkDataType(nestedCount))
+          }
+          case m: MapType =>
+            val nestedCount = RandomUtils.choice(0, 2)
+            MapType(
+              RandomUtils.generateRandomSparkDataType(nestedCount),
+              RandomUtils.generateRandomSparkDataType(nestedCount)
+            )
+          case s: StructType =>
+            val nestedCountOfStruct = RandomUtils.choice(0, 2)
+            val nestedCountOfFields = RandomUtils.choice(0, 2)
+            StructType(RandomUtils.generateRandomStructFields(nestedCountOfStruct, nestedCountOfFields))
           case x => x
         }
       RQGColumn(s"column_$idx", dataType)

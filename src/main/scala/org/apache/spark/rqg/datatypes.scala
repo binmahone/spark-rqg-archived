@@ -4,12 +4,18 @@ import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.{types => sparktypes}
 
+import scala.collection.mutable
+
 trait DataType[T] extends WeightedChoice {
   def sparkType: sparktypes.DataType
   def typeName: String
   def sameType(other: DataType[_]): Boolean = this == other
   def acceptsType(other: DataType[_]): Boolean = sameType(other)
   override def weightName: String = typeName
+}
+
+trait ComplexType[T] extends DataType[T] {
+  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[ComplexType[_]]
 }
 
 trait NumericType[T] extends DataType[T] {
@@ -23,6 +29,17 @@ trait IntegralType[T] extends NumericType[T] {
 trait FractionalType[T] extends NumericType[T]
 
 object DataType {
+  val primitiveSparkDataTypes: Array[sparktypes.DataType] = Array(
+    sparktypes.IntegerType,
+    sparktypes.StringType,
+    sparktypes.DoubleType,
+  )
+
+  val complexSparkDataTypes = Array(
+    sparktypes.ArrayType,
+    sparktypes.StructType,
+    sparktypes.MapType
+  )
   val supportedDataTypes: Array[DataType[_]] = Array(
     BooleanType,
     IntType,
@@ -34,7 +51,10 @@ object DataType {
     StringType,
     DecimalType(),
     DateType,
-    TimestampType
+    TimestampType,
+    ArrayType(),
+    MapType(),
+    StructType()
   )
 
   val joinableDataTypes: Array[DataType[_]] = Array(
@@ -107,6 +127,46 @@ case object StringType extends DataType[String] {
   override def typeName = "string"
 
   override def sparkType: sparktypes.DataType = sparktypes.StringType
+}
+
+/**
+ * Represent an Spark Array with specified element type
+ * @param innerType the type of each element in the array. will default to random if not specified
+ */
+case class ArrayType(innerType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2))
+  extends ComplexType[Array[_]] {
+
+  override def sparkType: sparktypes.DataType = sparktypes.ArrayType(innerType)
+
+  override def typeName: String = "array"
+}
+
+/**
+ * Represent a Spark Map with specified key and value type
+ * @param keyType the type of the map key. will default to random if not specified
+ * @param valueType the type of the map val. will default to random if not specified
+ */
+case class MapType(
+    keyType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2),
+    valueType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2))
+  extends ComplexType[mutable.Map[_, _]] {
+
+  override def sparkType: sparktypes.DataType = sparktypes.MapType(keyType, valueType)
+
+  override def typeName: String = "map"
+}
+
+/**
+ * Represent a Spark Struct. Data is represented as Row
+ * @param fields array of struct fields specifying the type of each struct element
+ */
+case class StructType(
+    fields: Array[sparktypes.StructField] = RandomUtils.generateRandomStructFields(1, 2))
+  extends ComplexType[sparktypes.StructType] {
+
+  override def sparkType: sparktypes.DataType = sparktypes.StructType(fields)
+
+  override def typeName: String = "struct"
 }
 
 case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalType[BigDecimal] {
