@@ -7,6 +7,7 @@ import org.apache.spark.rqg._
 import org.apache.spark.rqg.parser.QueryGeneratorOptions
 import org.apache.spark.rqg.runner.SparkSubmitQueryRunner
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{types => sparktypes}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -30,11 +31,7 @@ object QueryGenerator extends Logging {
     val testQueryRunner = new SparkSubmitQueryRunner(
       options.testSparkVersion, options.testSparkHome, options.testMaster)
 
-    val sparkSession = SparkSession.builder()
-      .master("local[*]")
-      .enableHiveSupport()
-      .config("spark.sql.warehouse.dir", warehouse)
-      .getOrCreate()
+    val sparkSession = SparkSession.builder() .master("local[*]") .enableHiveSupport() .config("spark.sql.warehouse.dir", warehouse) .getOrCreate()
 
     val tables = describeTables(sparkSession, options.dbName)
 
@@ -45,9 +42,12 @@ object QueryGenerator extends Logging {
     var queries = ArrayBuffer[String]()
     var successCount = 0
     var failedCount = 0
-    while (successCount < count && failedCount < count) {
+    while (successCount < count && failedCount < count * 2) {
       try {
-        queries += Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables)).sql
+        val querySQL = Query(QueryContext(rqgConfig = rqgConfig, availableTables = tables)).sql
+        // Assert to make sure we generate valid SQL query
+        sparkSession.sql(querySQL).queryExecution.assertAnalyzed()
+        queries += querySQL
         successCount += 1
       } catch {
         case e: RQGEmptyChoiceException =>
@@ -130,7 +130,9 @@ object QueryGenerator extends Logging {
       val result = sparkSession.sql(s"DESCRIBE $tableName")
         .select("col_name", "data_type").as[(String, String)].collect()
       val columns = result.map {
-        case (columnName, columnType) => Column(tableName, columnName, parseDataType(columnType))
+        case (columnName, columnType) => {
+          Column(tableName, columnName, parseDataType(columnType))
+        }
       }
       Table(tableName, columns)
     }
@@ -138,6 +140,24 @@ object QueryGenerator extends Logging {
 
   private def parseDataType(dataType: String): DataType[_] = {
     val decimalPattern = "decimal\\(([0-9]+),([0-9]+)\\)".r
+    val arrayPattern = "array<(.*)>$".r
+    val mapPattern1= "^map<(\\w*),(\\w*)>$".r
+    val mapPattern2 = "^map<(\\w*),(\\w*<.*>)>$".r
+    val mapPattern3 = "^map<(\\w*<.*?>),(\\w*)>$".r
+    val mapPattern4 = "^map<(\\w*<.*?>),(\\w*<.*>)>$".r
+    val structPattern = "struct<(.*)>$".r
+    // Case 1
+    // map<int,string>
+    // ^map<(\w*),(\w*)>$
+    // Case 2
+    // map<string,map<array<int>,int>>
+    // ^map<(\w*),(\w*<.*>)>$
+    // Case 3
+    // map<array<integer>,string>
+    // ^map<(\w*<.*>),(\w*)>$
+    // Case 4
+    // map<array<int>,map<array<int>,int>>
+    // ^map<(\w*<.*>),(\w*<.*>)>$
     dataType match {
       case "boolean" => BooleanType
       case "tinyint" => TinyIntType
@@ -149,6 +169,42 @@ object QueryGenerator extends Logging {
       case "string" => StringType
       case "date" => DateType
       case "timestamp" => TimestampType
+      case arrayPattern(inner) =>
+        ArrayType(parseDataType(inner).sparkType)
+      case mapPattern1(keyType, valueType) =>
+        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+      case mapPattern2(keyType, valueType) =>
+        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+      case mapPattern3(keyType, valueType) =>
+        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+      case mapPattern4(keyType, valueType) =>
+        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+      case structPattern(inner) =>
+        val s = inner + ","
+        var i = 0
+        var j = 0
+        var count = 0
+        val split = ArrayBuffer[String]()
+        while (j < s.length) {
+          if (s.charAt(j) == '<') {
+            count += 1
+          } else if (s.charAt(j) == '>') {
+            count -= 1
+          } else if (s.charAt(j) == ',') {
+            if (count == 0) {
+              split += s.substring(i, j)
+              i = j + 1
+            }
+          }
+          j += 1
+        }
+        val arr = split.map(x => x.replaceFirst("\\w*:", "")).toArray
+        val fields = arr.zipWithIndex.map( {
+          case (field, index) =>
+            val parsedType = parseDataType(field)
+            sparktypes.StructField(parsedType.typeName + index, parsedType.sparkType)
+        })
+        StructType(fields)
       case decimalPattern(precision, scale) => DecimalType(precision.toInt, scale.toInt)
     }
   }

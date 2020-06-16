@@ -1,7 +1,7 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg.ast.clauses.WhereClause
-import org.apache.spark.rqg.{DataType, RQGConfig, RandomUtils}
+import org.apache.spark.rqg.{ArrayType, DataType, MapType, RQGConfig, RandomUtils, StructType}
 import org.apache.spark.rqg.ast.{NestedQuery, PredicateGenerator, QueryContext, TreeNode}
 
 /**
@@ -34,10 +34,22 @@ object Predicate extends PredicateGenerator[Predicate] {
       querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_]): Predicate = {
-    val choice = RandomUtils.nextChoice(choices)
+
+    // LIKE predicate expects a string on the left side and the right side
+    // Normally, int, float, etc will be casted as string automatically by Spark
+    // However, Array and MapType and StructType cannot be casted as string
+    val filteredChoices = if (requiredDataType.isInstanceOf[ArrayType]
+        || requiredDataType.isInstanceOf[MapType]
+        || requiredDataType.isInstanceOf[StructType]) {
+      choices.filterNot(c => c == LikePredicate)
+    } else {
+      Array(BetweenPredicate, InPredicate, LikePredicate, NullPredicate)
+    }
+    val choice = RandomUtils.nextChoice(filteredChoices)
     val predicate = choice.apply(querySession, parent, requiredDataType)
     predicate
   }
+
   private def choices = {
     Array(BetweenPredicate, InPredicate, LikePredicate, NullPredicate)
   }

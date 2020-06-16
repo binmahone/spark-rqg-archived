@@ -15,7 +15,7 @@ trait DataType[T] extends WeightedChoice {
 }
 
 trait ComplexType[T] extends DataType[T] {
-  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[ComplexType[_]]
+  override def acceptsType(other: DataType[_]): Boolean = this.sparkType.sameType(other.sparkType)
 }
 
 trait NumericType[T] extends DataType[T] {
@@ -147,7 +147,7 @@ case class ArrayType(innerType: sparktypes.DataType = RandomUtils.generateRandom
  * @param valueType the type of the map val. will default to random if not specified
  */
 case class MapType(
-    keyType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2),
+    keyType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2, true),
     valueType: sparktypes.DataType = RandomUtils.generateRandomSparkDataType(2))
   extends ComplexType[mutable.Map[_, _]] {
 

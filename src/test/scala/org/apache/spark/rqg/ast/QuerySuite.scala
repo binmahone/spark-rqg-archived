@@ -30,7 +30,11 @@ class QuerySuite extends FunSuite {
     Table("table_5", Array(
       Column("table_5", "column_1",StringType), Column("table_5", "column_2",DecimalType(12,4)),
       Column("table_5", "column_3",StringType), Column("table_5", "column_4",DecimalType(12,4)),
-      Column("table_5", "column_5",IntType))))
+      Column("table_5", "column_5",IntType))),
+    Table("table_6", Array(
+      Column("table_6", "column_1",ArrayType()), Column("table_6", "column_2",MapType()),
+      Column("table_6", "column_3",StructType())))
+  )
 
   // Use function rather than val in order to generate new querySession every time
   private def querySession = QueryContext(availableTables = tables)
@@ -39,7 +43,11 @@ class QuerySuite extends FunSuite {
 
   test("Query") {
     for (_ <- 0 until 1000) {
-      queryValidator.assertValid(Query(querySession, None).sql)
+      try {
+        queryValidator.assertValid(Query(querySession, None).sql)
+      } catch {
+        case e: RQGEmptyChoiceException => println(e.getMessage)
+      }
     }
   }
 }

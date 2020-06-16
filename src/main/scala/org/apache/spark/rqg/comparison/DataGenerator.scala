@@ -116,9 +116,10 @@ case class DataGenerator(
   }
 
   private def toCreateTableSql(table: RQGTable): String = {
-    s"CREATE TABLE ${table.dbName}.${table.name} (${table.schemaString}) " +
+    val s = s"CREATE TABLE ${table.dbName}.${table.name} (${table.schemaString}) " +
       s"USING ${table.provider} " +
       s"LOCATION '${table.location}'"
+    s
   }
 
   private def toDropTableSql(table: RQGTable): String = {
@@ -159,18 +160,21 @@ case class DataGenerator(
             val scale = RandomUtils.choice(0, precision)
             d.copy(precision = precision, scale = scale)
           case a: ArrayType => {
-            val nestedCount = RandomUtils.choice(0, 2)
+            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+            val nestedCount = RandomUtils.choice(minNested, maxNested)
             ArrayType(RandomUtils.generateRandomSparkDataType(nestedCount))
           }
           case m: MapType =>
-            val nestedCount = RandomUtils.choice(0, 2)
+            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+            val nestedCount = RandomUtils.choice(minNested, maxNested)
             MapType(
               RandomUtils.generateRandomSparkDataType(nestedCount),
               RandomUtils.generateRandomSparkDataType(nestedCount)
             )
           case s: StructType =>
-            val nestedCountOfStruct = RandomUtils.choice(0, 2)
-            val nestedCountOfFields = RandomUtils.choice(0, 2)
+            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+            val nestedCountOfStruct = RandomUtils.choice(minNested, maxNested)
+            val nestedCountOfFields = RandomUtils.choice(minNested, maxNested)
             StructType(RandomUtils.generateRandomStructFields(nestedCountOfStruct, nestedCountOfFields))
           case x => x
         }

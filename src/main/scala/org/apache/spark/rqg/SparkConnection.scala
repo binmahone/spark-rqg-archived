@@ -5,9 +5,9 @@ import java.sql.{Connection, DriverManager, ResultSet, SQLException}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.JdbcDialects
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructType => SparkStructType}
 
-case class QueryResult(rows: Seq[Row], schema: StructType)
+case class QueryResult(rows: Seq[Row], schema: SparkStructType)
 
 class SparkConnection(connection: Connection, jdbcUrl: String) {
 
@@ -18,7 +18,7 @@ class SparkConnection(connection: Connection, jdbcUrl: String) {
       case e: SQLException => Left(e)
     }
     maybeRs.right.map { rs =>
-      val schema: StructType =
+      val schema: SparkStructType =
         JdbcUtils.getSchema(rs, JdbcDialects.get(jdbcUrl))
       val rows = JdbcUtils.resultSetToRows(rs, schema).toArray.toSeq
       QueryResult(rows, schema)

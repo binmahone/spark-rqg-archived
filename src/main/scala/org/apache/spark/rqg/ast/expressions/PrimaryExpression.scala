@@ -1,8 +1,12 @@
 package org.apache.spark.rqg.ast.expressions
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, NestedQuery, QueryContext, Signature, TreeNode}
 import org.apache.spark.rqg.ast.functions._
+import org.apache.spark.sql.Row
 
 /**
  * primaryExpression
@@ -114,12 +118,56 @@ class Constant(
     RandomUtils.nextConstant(requiredDataType)
   }
 
+  def getString (element: Any): String = {
+    if (element.isInstanceOf[Array[Any]]) {
+      val arr = element.asInstanceOf[Array[Any]]
+      var res = ArrayBuffer[Any]()
+      for (elem <- arr) {
+        res += getString(elem)
+      }
+      s"array(${res.mkString(",")})"
+    } else if (element.isInstanceOf[mutable.Map[Any, Any]]) {
+      val map = element.asInstanceOf[mutable.Map[Any, Any]]
+      val res = new StringBuilder()
+      res.append("map(")
+      for ((k, v) <- map) {
+        res.append(getString(k))
+        res.append(",")
+        res.append(getString(v))
+        res.append(",")
+      }
+      res.deleteCharAt(res.length - 1)
+      res.append(")")
+      res.toString()
+    } else if (element.isInstanceOf[Row]) {
+      val instance = element.asInstanceOf[Row]
+      val length = instance.length - 1
+      var res = ArrayBuffer[String]()
+      for (i <- 0 to length) {
+        res += getString(instance.get(i))
+      }
+      "struct(" + res.mkString(",") + ")"
+    } else {
+      element match {
+        case s: String => s"'${s.toString}'"
+        case _ => element.toString
+      }
+    }
+  }
+
   override def sql: String = {
     requiredDataType match {
       case StringType => s"'${value.toString}'"
       case DateType => s"to_date('${value.toString}')"
       case TimestampType => s"to_timestamp('${value.toString}')"
-      case _ => value.toString
+      case a: ArrayType =>
+        getString(value)
+      case m: MapType =>
+        getString(value)
+      case s: StructType =>
+        getString(value)
+      case _ =>
+        value.toString
     }
   }
 
@@ -127,7 +175,9 @@ class Constant(
 
   override def dataType: DataType[_] = requiredDataType
 
-  override def isAgg: Boolean = false
+  override def isAgg: Boolean = {
+    requiredDataType.isInstanceOf[MapType] || requiredDataType.isInstanceOf[StructType]
+  }
 
   override def columns: Seq[ColumnReference] = Seq.empty
 
@@ -339,7 +389,7 @@ class ColumnReference(
 
   override def columns: Seq[ColumnReference] = Seq(this)
 
-  override def nonAggColumns: Seq[ColumnReference] = columns
+  override def nonAggColumns: Seq[ColumnReference] = columns.filterNot(c => c.dataType.isInstanceOf[MapType])
 }
 
 /**

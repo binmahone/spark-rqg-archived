@@ -50,7 +50,8 @@ object RQGConfig {
     WeightEntry("Int", 10d) :: WeightEntry("TinyInt", 2d) :: WeightEntry("SmallInt", 2d) ::
       WeightEntry("BigInt", 2d) :: WeightEntry("Float", 2d) :: WeightEntry("Double", 5d) ::
       WeightEntry("Boolean", 1d) :: WeightEntry("Decimal", 10d) :: WeightEntry("String", 2d) ::
-      WeightEntry("Date", 7d) :: WeightEntry("Timestamp", 8d) :: Nil
+      WeightEntry("Date", 2d) :: WeightEntry("Timestamp", 2d) ::
+      WeightEntry("Array", 2d) :: WeightEntry("Map", 2d) :: WeightEntry("Struct", 2d) :: Nil
 
   // Config keys
   val DATA_GENERATOR_PROFILE = "DATA_GENERATOR_PROFILE"
@@ -66,6 +67,8 @@ object RQGConfig {
 
   // Bounds
   val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
+  val MAX_NESTED_COMPLEX_DATA_TYPE_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT", (0, 2))
+  val MAX_COMPLEX_DATA_TYPE_LENGTH = RQGConfigEntry(s"$BOUNDS.MAX_COMPLEX_DATA_TYPE_LENGTH", (0, 5))
   val MAX_NESTED_EXPR_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_EXPR_COUNT", (0, 5))
   val SELECT_ITEM_COUNT = RQGConfigEntry(s"$BOUNDS.SELECT_ITEM_COUNT", (1, 5))
   val JOIN_COUNT = RQGConfigEntry(s"$BOUNDS.JOIN_COUNT", (0, 2))

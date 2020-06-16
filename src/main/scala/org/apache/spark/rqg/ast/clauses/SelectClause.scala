@@ -1,8 +1,8 @@
 package org.apache.spark.rqg.ast.clauses
 
-import org.apache.spark.rqg.{DataType, RQGConfig, RandomUtils}
+import org.apache.spark.rqg.{DataType, MapType, RQGConfig, RandomUtils, StructType}
 import org.apache.spark.rqg.ast.expressions.NamedExpression
-import org.apache.spark.rqg.ast.{AggPreference, NestedQuery, QueryContext, TreeNodeWithParent, TreeNode}
+import org.apache.spark.rqg.ast.{AggPreference, NestedQuery, QueryContext, TreeNode, TreeNodeWithParent}
 
 /**
  * selectClause
@@ -16,13 +16,20 @@ class SelectClause(
     val requiredDataType: Option[DataType[_]],
     val parent: Option[TreeNode]) extends TreeNode {
 
+  // Important: We have to generate namedExpressionSeq before setQuantifier
+  // because setQuantifier depends on namedExpressionSeq dataType
+  val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
+
+  // DISTINCT behind the scene use the set operation but set does not support maptype and structtype
+  // Therefore, we need to exclude two of them here
   val setQuantifier: Option[String] =
-    if (RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
+    if (!namedExpressionSeq.head.dataType.isInstanceOf[MapType] &&
+        !namedExpressionSeq.head.dataType.isInstanceOf[StructType] &&
+        RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
       Some("DISTINCT")
     } else {
       None
     }
-  val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
 
   private def generate(minSelectCount: Int, maxSelectCount: Int, dataType: DataType[_]): Seq[NamedExpression] = {
     (0 until RandomUtils.choice(minSelectCount, maxSelectCount))
@@ -39,8 +46,9 @@ class SelectClause(
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
     var (min, max) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
-    val dataType = requiredDataType.getOrElse(RandomUtils.choice(
-      queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE)))
+    val randomChoiceDataType = RandomUtils.choice(
+      queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE))
+    val dataType = requiredDataType.getOrElse(randomChoiceDataType)
     // TODO: Only if it is a scalar subquery we can only generate at most one column, this can
     //  be done after the function framework is done as scalar subquery should be generated
     //  inside a aggregating function

@@ -154,8 +154,10 @@ class ArithmeticBinary(
   private def operators = {
     if (requiredDataType.isInstanceOf[NumericType[_]]) {
       Array(MINUS, PLUS)
-    } else {
+    } else if (!requiredDataType.isInstanceOf[MapType] && !requiredDataType.isInstanceOf[StructType]){
       Array(CONCAT)
+    } else {
+      throw RQGEmptyChoiceException("Do not have an operator that can support the required data type")
     }
   }
 

@@ -103,7 +103,8 @@ object RandomUtils extends Logging {
   def generateRandomStructSchema(nestedCountOfStruct: Int): sparktypes.DataType = {
     // This count how many time the element inside a struct can be nested.
     // The element cannot be struct
-    val randomNestedInFields = RandomUtils.choice(0, 2)
+    val (minNested, maxNested) = rqgConfig.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+    val randomNestedInFields = RandomUtils.choice(minNested, maxNested)
     sparktypes.StructType(generateRandomStructFields(nestedCountOfStruct, randomNestedInFields))
   }
 
@@ -131,13 +132,21 @@ object RandomUtils extends Logging {
     })
   }
 
-  def generateRandomArray(nestedCount: Int): sparktypes.DataType = {
-    sparktypes.ArrayType(generateRandomSparkDataType(nestedCount - 1))
+  /**
+   * Generate a random ArrayType
+   * @param nestedCount how many times this arraytype can be nested
+   * @param cannotBeMap This means if the parent of this array is map, then its children cannot be map
+   *                    For ex: This is invalid: Map<Array<Map<....>>>
+   *                            But, this is valid: Array<Map<...>>
+   * @return a random ArrayType
+   */
+  def generateRandomArray(nestedCount: Int, cannotBeMap: Boolean): sparktypes.DataType = {
+    sparktypes.ArrayType(generateRandomSparkDataType(nestedCount - 1, cannotBeMap))
   }
 
   def generateRandomMap(nestedCount: Int): sparktypes.DataType = {
     sparktypes.MapType(
-      generateRandomSparkDataType(nestedCount - 1),
+      generateRandomSparkDataType(nestedCount - 1, cannotBeMap = true),
       generateRandomSparkDataType(nestedCount - 1))
   }
 
@@ -147,17 +156,18 @@ object RandomUtils extends Logging {
    *                    Ex:
    *                    Array<Int> = 0
    *                    Array<Array<Int>> = 1
-   *                    Array<Array<Int>>>
-   *
+   *                    Array<Array<Array<Int>>> = 2
+   * @param cannotBeMap this dataType cannot be or contain MapType
+   *                    Spark Rule: TypeCheckResult.TypeCheckFailure("The key of map cannot be/contain map.")
    * @return a randomly nested or non-nested spark data type
    */
-  def generateRandomSparkDataType(nestedCount: Int = 1): sparktypes.DataType = {
+  def generateRandomSparkDataType(nestedCount: Int = 1, cannotBeMap: Boolean = false): sparktypes.DataType = {
     if (nestedCount == 0 || getRandom.nextBoolean()) {
       nextChoice(DataType.primitiveSparkDataTypes)
     } else if (nestedCount > 0) {
       val choice = RandomUtils.choice(0, 1)
-        if (choice == 0) {
-          generateRandomArray(nestedCount)
+        if (cannotBeMap || choice == 0) {
+          generateRandomArray(nestedCount, cannotBeMap)
         } else {
           generateRandomMap(nestedCount)
         }

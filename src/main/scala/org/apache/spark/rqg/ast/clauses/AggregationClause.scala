@@ -1,7 +1,9 @@
 package org.apache.spark.rqg.ast.clauses
 
-import org.apache.spark.rqg.RandomUtils
+import org.apache.spark.rqg.{RandomUtils, StructType}
 import org.apache.spark.rqg.ast.{NestedQuery, Query, QueryContext, TreeNode, TreeNodeGenerator}
+import org.apache.spark.sql.catalyst.expressions.RowOrdering
+import org.apache.spark.sql.{types => sparktypes}
 
 /**
  * aggregationClause
@@ -39,7 +41,9 @@ class AggregationClause(
     }
     if (expressions.isEmpty) {
       val relation = RandomUtils.nextChoice(queryContext.availableRelations)
-      val column = RandomUtils.nextChoice(relation.columns)
+      // Only certain dataType be used as a grouping expression
+      // Items that are not orderable are: map, struct with non-orderable field, array with non-orderable elementType
+      val column = RandomUtils.nextChoice(relation.columns.filter(c => RowOrdering.isOrderable(c.dataType.sparkType)))
       Seq(s"${relation.name}.${column.name}")
     } else {
       expressions

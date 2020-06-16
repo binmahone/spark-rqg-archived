@@ -1,11 +1,10 @@
 package org.apache.spark.rqg
 
 import java.sql.{Date, Timestamp}
-
-import scala.util.Random
-import org.apache.spark.sql.{Row, types => sparktypes}
-
 import scala.collection.mutable
+import scala.util.Random
+
+import org.apache.spark.sql.{Row, types => sparktypes}
 
 class ValueGenerator(random: Random) {
 
