@@ -74,6 +74,12 @@ sbt pack
 sbt packArchive
 ```
 
+## Best way to resolve some issues 
+
+Delete any related rqg generated folder like rqg_data and spark_rqg in the home directory.
+Delete the /tmp/test-spark/ folder.
+Then, run the dataGenerator and queryGenerator commands again.
+
 ## FAQ
 
 ### How to solve the problem of `spark-submit returned with exit code x, See the log4j logs for more detail`?
@@ -91,3 +97,7 @@ Sometimes the user will receive this error for the first starting, try to set `S
 ### Why I met the scala version related error while using Spark RQG?
 
 It's because we use Scala 2.12 as the default Scala version in RQG to be consistent with Spark 3.0 or newer version. But if you use the existing Spark version before 3.0, you'll get such exception since they used Scala 2.11. To fix this, you need to recompile the old version by 2.12 or change both test and ref version to before or after 3.0.
+
+### Table meta does not exist
+We can easily solve this by running the dataGenerator command
+
