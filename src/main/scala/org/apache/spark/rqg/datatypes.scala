@@ -19,11 +19,11 @@ trait ComplexType[T] extends DataType[T] {
 }
 
 trait NumericType[T] extends DataType[T] {
-  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[NumericType[_]]
+  override def acceptsType(other: DataType[_]): Boolean = this.sparkType.sameType(other.sparkType)
 }
 
 trait IntegralType[T] extends NumericType[T] {
-  override def acceptsType(other: DataType[_]): Boolean = other.isInstanceOf[IntegralType[_]]
+  override def acceptsType(other: DataType[_]): Boolean = this.sparkType.sameType(other.sparkType)
 }
 
 trait FractionalType[T] extends NumericType[T]
@@ -179,7 +179,9 @@ case class DecimalType(precision: Int = 10, scale: Int = 0) extends FractionalTy
 
   override def weightName: String = "decimal"
 
-  override def sameType(other: DataType[_]): Boolean = other.isInstanceOf[DecimalType]
+  override def sameType(other: DataType[_]): Boolean = {
+    other.isInstanceOf[DecimalType]
+  }
 
   override def sparkType: sparktypes.DataType = sparktypes.DecimalType(precision, scale)
 }

@@ -1,11 +1,10 @@
 package org.apache.spark.rqg
 
+
 package object ast {
   case class Operator(name: String, op: String)
 
-  case class Function(name: String, signatures: Seq[Signature], isAgg: Boolean)
-
-  case class Signature(returnType: DataType[_], inputTypes: Seq[DataType[_]])
+  case class Function(name: String, returnType: DataType[_], inputTypes: Seq[DataType[_]], isAgg: Boolean, nondeterministic: Boolean)
 
   case class JoinType(name: String, weightName: String) extends WeightedChoice
 
@@ -27,33 +26,6 @@ package object ast {
     val GT = Operator("gt", ">")
     val GTE = Operator("gte", ">=")
     val NSEQ = Operator("nseq", "<=>")
-  }
-
-  object functions {
-    val COUNT = Function("count", Seq(Signature(BigIntType, Seq(IntType))), isAgg = true)
-    val SUM = Function("sum",
-      Seq(
-        Signature(BigIntType, Seq(IntType)),
-        Signature(DoubleType, Seq(FloatType)),
-        Signature(DoubleType, Seq(DoubleType))), isAgg = true)
-    val MAX = Function("max",
-      Seq(
-        Signature(BigIntType, Seq(IntType)),
-        Signature(DoubleType, Seq(FloatType)),
-        Signature(DoubleType, Seq(DoubleType))), isAgg = true)
-    val FIRST = Function("first",
-      Seq(
-        Signature(BooleanType, Seq(BooleanType)),
-        Signature(IntType, Seq(IntType)),
-        Signature(TinyIntType, Seq(TinyIntType)),
-        Signature(SmallIntType, Seq(SmallIntType)),
-        Signature(FloatType, Seq(FloatType)),
-        Signature(DecimalType(), Seq(DecimalType())),
-        Signature(DateType, Seq(DateType)),
-        Signature(TimestampType, Seq(TimestampType)),
-        Signature(StringType, Seq(StringType))), isAgg = true)
-
-    val ABS = Function("abs", Seq(Signature(IntType, Seq(IntType))), isAgg = false)
   }
 
   object joins {

@@ -2,10 +2,9 @@ package org.apache.spark.rqg.ast.expressions
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, NestedQuery, QueryContext, Signature, TreeNode}
-import org.apache.spark.rqg.ast.functions._
+import org.apache.spark.rqg.ast.relations.{JoinCriteria, JoinRelation}
+import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, Functions, NestedQuery, QueryContext, TreeNode}
 import org.apache.spark.sql.Row
 
 /**
@@ -265,32 +264,53 @@ class FunctionCall(
 
   val func: Function = generateFunction
 
-  val signature: Signature = generateSignature
-
   val arguments: Seq[BooleanExpression] = generateArguments
 
+  /**
+   * Check all parent to see if they don't satisfies these rules
+   *    nondeterministic expressions are only allowed in
+   *    Project, Filter, Aggregate or Window
+   * This is the spark rule that only allows nondeterministic function
+   * in certain clause only
+   *
+   * @param parent ast parent
+   * @return whether or not the function is not valid
+   */
+  private def notValid(parent: Option[TreeNode]): Boolean = {
+    if (parent.isEmpty) {
+      return false
+    }
+    parent.get match {
+      case j: JoinCriteria => true
+      case f: FunctionCall =>
+        if (f.func.isAgg) {
+          true
+        } else {
+          notValid(parent.get.parent)
+        }
+      case _ => notValid(parent.get.parent)
+    }
+  }
+
   private def generateFunction: Function = {
-    val functions = if (queryContext.aggPreference == AggPreference.FORBID) {
+    val functions = (if (queryContext.aggPreference == AggPreference.FORBID) {
       FunctionCall.supportedFunctions.filterNot(_.isAgg)
     } else if (queryContext.needGenerateAggFunction) {
       FunctionCall.supportedFunctions.filter(_.isAgg)
+    } else if (notValid(parent)){
+      FunctionCall.supportedFunctions.filterNot(_.nondeterministic)
     } else {
       FunctionCall.supportedFunctions
-    }
-    RandomUtils.nextChoice(
-      functions.filter(_.signatures.exists(s => requiredDataType.acceptsType(s.returnType))))
-  }
+    }).toArray
 
-  private def generateSignature: Signature = {
-    RandomUtils.nextChoice(
-      func.signatures.filter(s => requiredDataType.acceptsType(s.returnType)).toArray)
+    RandomUtils.nextChoice(functions.filter(f => f.returnType.sparkType.sameType(requiredDataType.sparkType)))
   }
 
   private def generateArguments: Seq[BooleanExpression] = {
     val previous = queryContext.aggPreference
     if (func.isAgg) queryContext.aggPreference = AggPreference.FORBID
-    val length = signature.inputTypes.length
-    val arguments = signature.inputTypes.zipWithIndex.map {
+    val length = func.inputTypes.length
+    val arguments = func.inputTypes.zipWithIndex.map {
       case (dt, idx) =>
         BooleanExpression(queryContext, Some(this), dt, isLast = idx == (length - 1))
     }
@@ -299,8 +319,11 @@ class FunctionCall(
   }
 
   override def sql: String = {
-    if (func.isAgg && func.name != "first" && RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.DISTINCT_IN_FUNCTION))) {
-      s"${func.name}(distinct(${arguments.map(_.sql).mkString(", ")}))"
+    if (func.isAgg &&
+        func.name != "first" &&
+        arguments.size < 2 &&
+        RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.DISTINCT_IN_FUNCTION))) {
+      s"${func.name}(distinct ${arguments.map(_.sql).mkString(", ")})"
     } else {
       s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
     }
@@ -311,7 +334,7 @@ class FunctionCall(
     case _ => s"func_${dataType.typeName}"
   }
 
-  override def dataType: DataType[_] = signature.returnType
+  override def dataType: DataType[_] = func.returnType
 
   override def isAgg: Boolean = func.isAgg || arguments.exists(_.isAgg)
 
@@ -332,17 +355,18 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
     new FunctionCall(querySession, parent, requiredDataType, isLast)
   }
 
-  private def supportedFunctions = Array(COUNT, SUM, ABS, FIRST, MAX)
+  private def supportedFunctions = Functions.registeredFunctions
 
   override def canGeneratePrimitive: Boolean = false
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
+    Functions.registeredFunctions.map(_.returnType)
     (if (querySession.aggPreference == AggPreference.FORBID) {
       supportedFunctions.filterNot(_.isAgg)
     } else {
       supportedFunctions
-    }).flatMap(_.signatures).map(_.returnType).distinct
-  }
+    }).map(_.returnType)
+  }.toArray
 
   override def canGenerateRelational: Boolean = false
 
