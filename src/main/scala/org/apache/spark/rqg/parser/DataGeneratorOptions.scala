@@ -11,20 +11,23 @@ case class DataGeneratorOptions(
     dbName: String = DatabaseOptions.Defaults.dbName,
     // Spark Runner Options
     timeout: Int = SparkSubmitOptions.Defaults.timeout,
-    refSparkVersion: String = SparkSubmitOptions.Defaults.refSparVersion,
+    refSparkVersion: String = SparkSubmitOptions.Defaults.refSparkVersion,
     refSparkHome: Option[String] = SparkSubmitOptions.Defaults.refSparkHome,
     refMaster: String = SparkSubmitOptions.Defaults.refMaster,
     testSparkVersion: String = SparkSubmitOptions.Defaults.testSparkVersion,
     testSparkHome: Option[String] = SparkSubmitOptions.Defaults.testSparkHome,
     testMaster: String = SparkSubmitOptions.Defaults.refMaster,
-    // Database Population Options
+    verbose: Boolean = SparkSubmitOptions.Defaults.verbose,
+  // Database Population Options
     randomizationSeed: Int = DataGeneratorOptions.Defaults.randomizationSeed,
     tableCount: Int = DataGeneratorOptions.Defaults.tableCount,
     minColumnCount: Int = DataGeneratorOptions.Defaults.minColumnCount,
     maxColumnCount: Int = DataGeneratorOptions.Defaults.maxColumnCount,
     minRowCount: Int = DataGeneratorOptions.Defaults.minRowCount,
     maxRowCount: Int = DataGeneratorOptions.Defaults.maxRowCount,
-    dataSources: Seq[DataSources.Value] = DataGeneratorOptions.Defaults.dataSources)
+    dataSources: Seq[DataSources.Value] = DataGeneratorOptions.Defaults.dataSources,
+    configFile: String = DataGeneratorOptions.Defaults.configFile,
+    dryRun: Boolean = false)
   extends DatabaseOptions[DataGeneratorOptions]
   with SparkSubmitOptions[DataGeneratorOptions] {
 
@@ -55,6 +58,9 @@ case class DataGeneratorOptions(
 
   override def withTestMaster(master: String): DataGeneratorOptions =
     copy(testMaster = master)
+
+  override def withVerbose(verbose: Boolean): DataGeneratorOptions =
+    copy(verbose = verbose)
 }
 
 /**
@@ -80,6 +86,7 @@ object DataGeneratorOptions {
     val maxRowCount: Int = math.pow(10, 6).toInt
     val dataSources: Seq[DataSources.Value] =
       Seq(DataSources.PARQUET, DataSources.JSON, DataSources.HIVE)
+    val configFile = ""
   }
 
   def parse(args: Array[String]): DataGeneratorOptions = {
@@ -124,6 +131,14 @@ object DataGeneratorOptions {
         opt[Seq[DataSources.Value]]("dataSources")
           .action((seq, c) => c.copy(dataSources = seq))
           .text("A comma separated list of storage formats to use. choices: PARQUET, JSON, HIVE"),
+
+        opt[String]("configFile")
+            .action((s, c) => c.copy(configFile = s))
+            .text("Path to a configuration file with all tested systems."),
+
+        opt[Boolean]("dryRun")
+            .action((s, c) => c.copy(dryRun = s))
+            .text("Just print the tables that will be generated without generating data."),
 
         note("\nOther Options"),
 

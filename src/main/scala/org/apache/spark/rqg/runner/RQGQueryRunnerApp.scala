@@ -1,33 +1,40 @@
 package org.apache.spark.rqg.runner
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
 
 import scala.io.Source
 import scala.util.control.NonFatal
-
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-
+import org.apache.spark.internal.Logging
 import org.apache.spark.{SparkException, SparkFiles}
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.{DateFormatter, DateTimeUtils, TimestampFormatter}
-import org.apache.spark.sql.catalyst.util.IntervalUtils.{toIso8601String, toMultiUnitsString, toSqlStandardString}
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{HiveResult, SparkPlan}
 import org.apache.spark.sql.execution.command._
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.internal.SQLConf.IntervalStyle.{ISO_8601, MULTI_UNITS, SQL_STANDARD}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.CalendarInterval
 
 /**
- * Most code is copied from SQLQueryTestSuite
+ * Runs queries as a Spark application. The entry point into this class is generally `spark-submit`.
+ * Most of the code is copied from SQLQueryTestSuite.
+ *
+ * The main() function expects three arguments:
+ * - The filename of the file holding the SQL queries, one on each line
+ * - Path of the result file, where results should be flushed by this app.
+ * - A string 'true' or 'false' that indicates whether to print verbose or quiet output. Verbose
+ * output will print queries as they are being executed.
  */
-object RQGQueryRunnerApp {
-
+object RQGQueryRunnerApp extends Logging {
+  /**
+   * Holds query output.
+   * @param sql SQL text of the query
+   * @param schema Normalized schema of the query.
+   * @param output Output of the query: either an exception message or a dataset.
+   */
   case class QueryOutput(sql: String, schema: String, output: String) {
     def toString(queryIndex: Int): String = {
       // We are explicitly not using multi-line string due to stripMargin removing "|" in output.
@@ -41,12 +48,14 @@ object RQGQueryRunnerApp {
   }
 
   /**
-   * This method handles exceptions occurred during query execution as they may need special care
+   * Handles exceptions that occurred during query execution as they may need special care
    * to become comparable to the expected output.
    *
    * @param result a function that returns a pair of schema and output
    */
-  protected def handleExceptions(result: => (String, Seq[String])): (String, Seq[String]) = {
+  protected def handleExceptions(
+    sparkSession: SparkSession,
+    result: => (String, Seq[String])): (String, Seq[String]) = {
     val emptySchema = StructType(Seq.empty).catalogString
     try {
       result
@@ -66,11 +75,24 @@ object RQGQueryRunnerApp {
       case NonFatal(e) =>
         // If there is an exception, put the exception class followed by the message.
         (emptySchema, Seq(e.getClass.getName, e.getMessage))
+      case fatal =>
+        val msg = s"Unknown exception ${fatal.getClass.getName} - ${fatal.getMessage}"
+        logError(msg)
+        sys.error(msg)
+    } finally {
+      if (sparkSession.sparkContext.isStopped) {
+        // If the context stopped, the executor most likely crashed. Exit here
+        logError("SparkContext was stopped, most likely due to an executor crash." +
+          "See logs to see what went wrong.")
+        sys.error("SparkContext stopped")
+      }
     }
   }
 
   /** Executes a query and returns the result as (schema of the output, normalized output). */
-  private def getNormalizedResult(session: SparkSession, sql: String): (String, Seq[String]) = {
+  private def getNormalizedResult(
+    sparkSession: SparkSession,
+    sql: String): (String, Seq[String]) = {
     // Returns true if the plan is supposed to be sorted.
     def isSorted(plan: LogicalPlan): Boolean = plan match {
       case _: Join | _: Aggregate | _: Generate | _: Sample | _: Distinct => false
@@ -79,8 +101,12 @@ object RQGQueryRunnerApp {
       case _ => plan.children.iterator.exists(isSorted)
     }
 
-    val df = session.sql(sql)
+    val df = sparkSession.sql(sql)
     val schema = df.schema.catalogString
+
+    logInfo(s"Executing query $sql")
+    logInfo(s"Plan: ${df.queryExecution.executedPlan}")
+
     // Get answer, but also get rid of the #1234 expression ids that show up in explain plans
     val answer = HiveResult.hiveResultString(df.queryExecution.executedPlan).map(replaceNotIncludedMsg)
 
@@ -108,134 +134,47 @@ object RQGQueryRunnerApp {
       .getOrCreate()
 
     val inputFile = new File(SparkFiles.getRootDirectory(), args(0))
+    val outputStream = new PrintWriter(new File(args(1)))
+    val printVerbose = args(2).toBoolean
 
-    val hadoopConf = new Configuration()
-    val outputFile = new Path(args(1))
-    val fs = outputFile.getFileSystem(hadoopConf)
-    val parent = outputFile.getParent
-    if (fs.exists(parent)) {
-      assert(fs.mkdirs(parent), "Could not create directory: " + parent)
-    }
-
-    val outputs = Source.fromFile(inputFile).getLines().toSeq.map { sql =>
-      val (schema, output) = handleExceptions(getNormalizedResult(sparkSession, sql))
-      // We might need to do some query canonicalization in the future.
-      QueryOutput(
-        sql = sql,
-        schema = schema,
-        output = output.mkString("\n").replaceAll("\\s+$", ""))
-    }
-
-    val goldenOutput = {
+    val queries = Source.fromFile(inputFile).getLines().toSeq
+    val goldenFileHeader = {
       s"-- Automatically generated by ${getClass.getSimpleName}\n" +
-        s"-- Number of queries: ${outputs.size}\n\n\n" +
-        outputs.zipWithIndex.map{case (qr, i) => qr.toString(i)}.mkString("\n\n\n") + "\n"
+        s"-- Number of attempted queries: ${queries.size}\n\n\n"
+    }
+    outputStream.write(goldenFileHeader)
+    outputStream.flush()
+
+    queries.zipWithIndex.foreach {
+      case (sql, queryIdx) =>
+        if (printVerbose) {
+          println(s"\tQuery $queryIdx running - $sql")
+        } else {
+          println(s"\tQuery $queryIdx running.")
+        }
+
+        // Run the query and collect exceptions.
+        val (schema, output) =
+          handleExceptions(sparkSession, getNormalizedResult(sparkSession, sql))
+
+        logInfo(s"Query $queryIdx completed")
+
+        // This message is required, since the RQG driver listens for it as a signal of query
+        // completion.
+        println(s"\tQuery $queryIdx completed.")
+        // Flush so listener picks up the query completion event.
+        System.out.flush()
+
+        // TODO(shoumik): we might need to do some query canonicalization in the future.
+        val queryOutput = QueryOutput(
+          sql = sql,
+          schema = schema,
+          output = output.mkString("\n").replaceAll("\\s+$", ""))
+        outputStream.write(queryOutput.toString(queryIdx) + "\n\n\n")
+        outputStream.flush()
     }
 
-    val os = fs.create(outputFile)
-    os.write(goldenOutput.getBytes())
-    os.close()
-
+    outputStream.close()
     sparkSession.stop()
-  }
-
-  object HiveResult {
-    /**
-     * Returns the result as a hive compatible sequence of strings. This is used in tests and
-     * `SparkSQLDriver` for CLI applications.
-     */
-    def hiveResultString(executedPlan: SparkPlan): Seq[String] = executedPlan match {
-      case ExecutedCommandExec(_: DescribeTableCommand) =>
-        // If it is a describe command for a Hive table, we want to have the output format
-        // be similar with Hive.
-        executedPlan.executeCollectPublic().map {
-          case Row(name: String, dataType: String, comment) =>
-            Seq(name, dataType,
-              Option(comment.asInstanceOf[String]).getOrElse(""))
-              .map(s => String.format(s"%-20s", s))
-              .mkString("\t")
-        }
-      // SHOW TABLES in Hive only output table names, while ours output database, table name, isTemp.
-      case command @ ExecutedCommandExec(s: ShowTablesCommand) if !s.isExtended =>
-        command.executeCollect().map(_.getString(1))
-      case other =>
-        val result: Seq[Seq[Any]] = other.executeCollectPublic().map(_.toSeq).toSeq
-        // We need the types so we can output struct field names
-        val types = executedPlan.output.map(_.dataType)
-        // Reformat to match hive tab delimited output.
-        result.map(_.zip(types).map(toHiveString)).map(_.mkString("\t"))
-    }
-
-    private val primitiveTypes = Seq(
-      StringType,
-      IntegerType,
-      LongType,
-      DoubleType,
-      FloatType,
-      BooleanType,
-      ByteType,
-      ShortType,
-      DateType,
-      TimestampType,
-      BinaryType)
-
-    private lazy val zoneId = DateTimeUtils.getZoneId(SQLConf.get.sessionLocalTimeZone)
-    private lazy val dateFormatter = DateFormatter(zoneId)
-    private lazy val timestampFormatter = TimestampFormatter.getFractionFormatter(zoneId)
-
-    /** Hive outputs fields of structs slightly differently than top level attributes. */
-    private def toHiveStructString(a: (Any, DataType)): String = a match {
-      case (struct: Row, StructType(fields)) =>
-        struct.toSeq.zip(fields).map {
-          case (v, t) => s""""${t.name}":${toHiveStructString((v, t.dataType))}"""
-        }.mkString("{", ",", "}")
-      case (seq: Seq[_], ArrayType(typ, _)) =>
-        seq.map(v => (v, typ)).map(toHiveStructString).mkString("[", ",", "]")
-      case (map: Map[_, _], MapType(kType, vType, _)) =>
-        map.map {
-          case (key, value) =>
-            toHiveStructString((key, kType)) + ":" + toHiveStructString((value, vType))
-        }.toSeq.sorted.mkString("{", ",", "}")
-      case (null, _) => "null"
-      case (s: String, StringType) => "\"" + s + "\""
-      case (decimal, DecimalType()) => decimal.toString
-      case (interval: CalendarInterval, CalendarIntervalType) =>
-        SQLConf.get.intervalOutputStyle match {
-          case SQL_STANDARD => toSqlStandardString(interval)
-          case ISO_8601 => toIso8601String(interval)
-          case MULTI_UNITS => toMultiUnitsString(interval)
-        }
-      case (other, tpe) if primitiveTypes contains tpe => other.toString
-    }
-
-    /** Formats a datum (based on the given data type) and returns the string representation. */
-    def toHiveString(a: (Any, DataType)): String = a match {
-      case (struct: Row, StructType(fields)) =>
-        struct.toSeq.zip(fields).map {
-          case (v, t) => s""""${t.name}":${toHiveStructString((v, t.dataType))}"""
-        }.mkString("{", ",", "}")
-      case (seq: Seq[_], ArrayType(typ, _)) =>
-        seq.map(v => (v, typ)).map(toHiveStructString).mkString("[", ",", "]")
-      case (map: Map[_, _], MapType(kType, vType, _)) =>
-        map.map {
-          case (key, value) =>
-            toHiveStructString((key, kType)) + ":" + toHiveStructString((value, vType))
-        }.toSeq.sorted.mkString("{", ",", "}")
-      case (null, _) => "NULL"
-      case (d: Date, DateType) => dateFormatter.format(DateTimeUtils.fromJavaDate(d))
-      case (t: Timestamp, TimestampType) =>
-        DateTimeUtils.timestampToString(timestampFormatter, DateTimeUtils.fromJavaTimestamp(t))
-      case (bin: Array[Byte], BinaryType) => new String(bin, StandardCharsets.UTF_8)
-      case (decimal: java.math.BigDecimal, DecimalType()) => decimal.toPlainString
-      case (interval: CalendarInterval, CalendarIntervalType) =>
-        SQLConf.get.intervalOutputStyle match {
-          case SQL_STANDARD => toSqlStandardString(interval)
-          case ISO_8601 => toIso8601String(interval)
-          case MULTI_UNITS => toMultiUnitsString(interval)
-        }
-      case (interval, CalendarIntervalType) => interval.toString
-      case (other, _ : UserDefinedType[_]) => other.toString
-      case (other, tpe) if primitiveTypes.contains(tpe) => other.toString
-    }
   }
 }

@@ -7,17 +7,20 @@ case class QueryGeneratorOptions(
     dbName: String = DatabaseOptions.Defaults.dbName,
     // Spark Runner Options
     timeout: Int = SparkSubmitOptions.Defaults.timeout,
-    refSparkVersion: String = SparkSubmitOptions.Defaults.refSparVersion,
+    refSparkVersion: String = SparkSubmitOptions.Defaults.refSparkVersion,
     refSparkHome: Option[String] = SparkSubmitOptions.Defaults.refSparkHome,
     refMaster: String = SparkSubmitOptions.Defaults.refMaster,
     testSparkVersion: String = SparkSubmitOptions.Defaults.testSparkVersion,
     testSparkHome: Option[String] = SparkSubmitOptions.Defaults.testSparkHome,
     testMaster: String = SparkSubmitOptions.Defaults.refMaster,
+    verbose: Boolean = SparkSubmitOptions.Defaults.verbose,
     // Discrepancy Searcher Options
     randomizationSeed: Int = QueryGeneratorOptions.Defaults.randomizationSeed,
     stopOnMismatch: Boolean = QueryGeneratorOptions.Defaults.stopOnMismatch,
     stopOnCrash: Boolean = QueryGeneratorOptions.Defaults.stopOnCrash,
+    skipDbSetup: Boolean = QueryGeneratorOptions.Defaults.skipDbSetup,
     queryCount: Int = QueryGeneratorOptions.Defaults.queryCount,
+    batchSize: Int = QueryGeneratorOptions.Defaults.batchSize,
     configFile: String = QueryGeneratorOptions.Defaults.configFile,
     // Run mode
     dryRun: Boolean = QueryGeneratorOptions.Defaults.dryRun)
@@ -47,23 +50,35 @@ case class QueryGeneratorOptions(
 
   override def withTestMaster(master: String): QueryGeneratorOptions =
     copy(testMaster = master)
+
+  override def withVerbose(verbose: Boolean): QueryGeneratorOptions =
+    copy(verbose = verbose)
 }
 
 object QueryGeneratorOptions {
 
   def parse(args: Array[String]): QueryGeneratorOptions = {
-
     val parser: OParser[_, QueryGeneratorOptions] = {
       val builder = OParser.builder[QueryGeneratorOptions]
       import builder._
       OParser.sequence(
-        programName("DataGenerator"),
+        programName("QueryGenerator"),
         DatabaseOptions.databaseParser,
         SparkSubmitOptions.sparkSubmitParser,
         note("Query Generator Options"),
         opt[Boolean]("dryRun")
           .action((i, c) => c.copy(dryRun = i))
-          .text("dry run will only display but does not excecute query"),
+          .text("Generate and print queries, but don't execute them."),
+        opt[Boolean]("stopOnCrash")
+          .action((i, c) => c.copy(stopOnCrash = i))
+          .text("Quit the RQG if Spark crashes or any query throws an exception."),
+        opt[Boolean]("stopOnMismatch")
+          .action((i, c) => c.copy(stopOnMismatch = i))
+          .text("Quit the RQG if a mismatch between the reference and test is found."),
+        opt[Boolean]("skipDbSetup")
+          .action((i, c) => c.copy(skipDbSetup = i))
+          .text("Skips setting up the database, assuming it was done already. Useful for repeated" +
+            "runs of the RQG."),
         opt[Int]("randomizationSeed")
           .action((i, c) => c.copy(randomizationSeed = i))
           .text(
@@ -73,6 +88,9 @@ object QueryGeneratorOptions {
         opt[Int]("queryCount")
           .action((i, c) => c.copy(queryCount = i))
           .text("The number of queries to generate."),
+        opt[Int]("batchSize")
+          .action((i, c) => c.copy(batchSize = i))
+          .text("Number of queries to generate and run in a single call to spark-submit."),
         opt[String]("configFile")
           .action((s, c) => c.copy(configFile = s))
           .text("Path to a configuration file with all tested systems."),
@@ -93,7 +111,9 @@ object QueryGeneratorOptions {
     val randomizationSeed = 0
     val stopOnMismatch = false
     val stopOnCrash = false
+    val skipDbSetup = false
     val queryCount = 100
+    val batchSize = 20
     val configFile = ""
     val dryRun = false
   }

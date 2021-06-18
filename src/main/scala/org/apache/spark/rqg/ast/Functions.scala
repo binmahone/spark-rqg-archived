@@ -236,9 +236,6 @@ object Functions {
     expression[MakeDate](FunctionType.DATETIME),
     expression[MakeTimestamp](FunctionType.DATETIME),
     expression[MakeInterval](FunctionType.DATETIME),
-    expression[JustifyDays](FunctionType.DATETIME),
-    expression[JustifyHours](FunctionType.DATETIME),
-    expression[JustifyInterval](FunctionType.DATETIME),
     expression[DatePart](FunctionType.DATETIME),
 //    // collection functions
     expression[ArrayContains](FunctionType.COLLECTION),

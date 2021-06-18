@@ -11,19 +11,12 @@ class QueryValidator(querySession: QueryContext) {
 
   def init(): Unit = {
     querySession.availableTables.foreach { table =>
-      val schema = table.columns.map { column =>
-        if (column.dataType.isInstanceOf[ComplexType[_]]) {
-          s"${column.name} ${column.dataType.sparkType.sql}"
-        } else {
-          s"${column.name} ${column.dataType.typeName}"
-        }
-      }.mkString(",")
+      val schema = table.columns.map(column => s"${column.name} ${column.dataType.toSql}").mkString(",")
       sparkSession.sql(s"CREATE TABLE ${table.name} ($schema) USING PARQUET")
     }
   }
 
   def assertValid(query: String): Unit = {
-    println(query)
     sparkSession.sql(query).queryExecution.assertAnalyzed()
   }
 }

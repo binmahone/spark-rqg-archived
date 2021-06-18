@@ -1,8 +1,9 @@
 package org.apache.spark.rqg.comparison
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import java.io.File;
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.TaskContext
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.parser.DataGeneratorOptions
@@ -10,17 +11,14 @@ import org.apache.spark.rqg.runner.{SparkQueryRunner, SparkSubmitQueryRunner}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{Row, SparkSession}
 
-object DataGenerator {
-
+object DataGenerator extends Runner {
   def main(args: Array[String]): Unit = {
-
     // NOTE: workaround for derby init exception in sbt:
     // java.security.AccessControlException:
     //   access denied org.apache.derby.security.SystemPermission( "engine", "usederbyinternals" )
     System.setSecurityManager(null)
 
     val options = DataGeneratorOptions.parse(args)
-
     val randomizationSeed = options.randomizationSeed
     RandomUtils.setSeed(randomizationSeed)
 
@@ -40,52 +38,54 @@ object DataGenerator {
       .config("spark.sql.warehouse.dir", warehouse)
       .getOrCreate()
 
-    // We will run create table in both ref and test system to create table meta and link to same
-    // data location.
     val refQueryRunner = new SparkSubmitQueryRunner(
-      options.refSparkVersion, options.refSparkHome, options.refMaster, options.timeout)
-    val testQueryRunner = new SparkSubmitQueryRunner(
-      options.testSparkVersion, options.testSparkHome, options.testMaster, options.timeout)
+      options.refSparkVersion, options.refSparkHome, options.refMaster, options.timeout,
+      options.verbose)
 
     val dataGenerator = new DataGenerator(
-      randomizationSeed, dbName, tableCount, minRowCount, maxRowCount,
-      minColumnCount, maxColumnCount, allowedDataSources.toArray, warehouse,
-      sparkSession, refQueryRunner, testQueryRunner)
+      options.dryRun, options.configFile, randomizationSeed, dbName, tableCount, minRowCount,
+      maxRowCount, minColumnCount, maxColumnCount, allowedDataSources.toArray, warehouse,
+      sparkSession, outputDirFile, refQueryRunner)
 
     dataGenerator.generateData()
-
     sparkSession.stop()
   }
 }
 
 case class DataGenerator(
+    dryRun: Boolean,
+    rqgConfigPath: String,
     randomizationSeed: Int,
     dbName: String, tableCount: Int,
     minRowCount: Int, maxRowCount: Int,
     minColumnCount: Int, maxColumnCount: Int,
     allowedDataSources: Array[String], warehouse: String,
     sparkSession: SparkSession,
-    @transient refQueryRunner: SparkQueryRunner,
-    @transient testQueryRunner: SparkQueryRunner) {
+    loggingDir: File,
+    @transient refQueryRunner: SparkQueryRunner) {
 
   private val BYTES_PER_BATCH = 10 * 1024 * 1024
   private val SAMPLE_ROW_COUNT = 10
 
   def generateData(): Unit = {
+    // Step 1: Create random table attributes
+
+    val tables = (1 to tableCount).map(idx => generateRandomRQGTable(s"table_$idx"))
+    if (dryRun) {
+      tables.foreach(table => println(table.prettyString))
+      return
+    }
+
+    println(s"Plan to generate data for ${tables.length} random tables")
+
     // Create Database
     val createDatabaseSql = s"CREATE DATABASE IF NOT EXISTS $dbName"
     sparkSession.sql(createDatabaseSql)
 
-    // Step 1: Create random table attributes
-    val tables = (1 to tableCount).map(idx => generateRandomRQGTable(s"table_$idx"))
-    println(s"Plan to generate data for ${tables.length} random tables")
-
-    // Step 2: Create table meta in both ref and test system
+    // Step 2: Create table metadata.
     val queries = tables.flatMap(table => toDropTableSql(table) :: toCreateTableSql(table) :: Nil)
-    println("Creating table meta in reference Spark version")
-    refQueryRunner.runQueries(createDatabaseSql +: queries)
-    println("Creating table meta in test Spark version")
-    testQueryRunner.runQueries(createDatabaseSql +: queries)
+    println("Creating table meta")
+    refQueryRunner.runQueries(createDatabaseSql +: queries, new Path(loggingDir.toString), "")
 
     tables.foreach { rqgTable =>
       // Step 3: Estimate partition count
@@ -113,6 +113,9 @@ case class DataGenerator(
       sparkSession.sql(s"INSERT OVERWRITE TABLE ${rqgTable.dbName}.${rqgTable.name} " +
         s"SELECT * FROM temp_${rqgTable.name}")
     }
+
+    tables.foreach(table => println(table.prettyString))
+    println("Successfully generated data.")
   }
 
   private def toCreateTableSql(table: RQGTable): String = {
@@ -152,6 +155,8 @@ case class DataGenerator(
   private def generateRandomRQGTable(tableName: String): RQGTable = {
     val provider = RandomUtils.nextChoice(allowedDataSources)
     val columnCount = RandomUtils.choice(minColumnCount, maxColumnCount)
+    val config = RQGConfig.load(rqgConfigPath)
+    val (_, maxNestingDepth) = config.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
     val columns = (1 to columnCount).map { idx =>
       val dataType =
         RandomUtils.nextChoice(DataType.supportedDataTypes) match {
@@ -178,6 +183,7 @@ case class DataGenerator(
             StructType(RandomUtils.generateRandomStructFields(nestedCountOfStruct, nestedCountOfFields))
           case x => x
         }
+
       RQGColumn(s"column_$idx", dataType)
     }
     RQGTable(dbName, tableName, columns, provider, warehouse)

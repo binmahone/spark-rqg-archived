@@ -95,6 +95,7 @@ trait SparkSubmitOptions[R] {
   def withTestVersion(testSparkVersion: String): R
   def withTestSparkHome(testSparkHome: String): R
   def withTestMaster(master: String): R
+  def withVerbose(verbose: Boolean): R
 }
 
 object SparkSubmitOptions {
@@ -109,6 +110,9 @@ object SparkSubmitOptions {
       opt[Int]("timeout")
         .action((i, c) => c.withTimeout(i))
         .text("timeout in seconds for running a SparkSubmit App"),
+      opt[Boolean]("verbose")
+        .action((s, c) => c.withVerbose(verbose = s))
+        .text("Whether to print verbose output while executing queries"),
 
       note("\nReference System Options"),
 
@@ -146,11 +150,12 @@ object SparkSubmitOptions {
 
   object Defaults {
     val timeout: Int = 0
-    val refSparVersion: String = "3.0.0-preview"
+    val refSparkVersion: String = "3.1.1"
     val refSparkHome: Option[String] = None
     val refMaster: String = "local[*]"
-    val testSparkVersion: String = "3.0.0-preview2"
+    val testSparkVersion: String = "3.1.1"
     val testSparkHome: Option[String] = None
     val testMaster: String = "local[*]"
+    val verbose: Boolean = false
   }
 }

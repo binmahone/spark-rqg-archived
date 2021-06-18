@@ -1,4 +1,5 @@
 #!/bin/bash
 
 ARGS="runQueryGenerator $@"
-sbt "$ARGS"
+# Set a higher memory limit to prevent OOM issues from SQL parsing.
+env JAVA_OPTS="-Xmx4g" sbt "$ARGS"

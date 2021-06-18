@@ -103,6 +103,10 @@ case class Table(name: String, columns: Array[Column]) {
   def sameTable(other: Table): Boolean = {
     name == other.name && columns.sameElements(other.columns)
   }
+
+  def schemaString: String = {
+    columns.map(column => s"${column.name} ${column.dataType.toSql}").mkString(", ")
+  }
 }
 
 /**

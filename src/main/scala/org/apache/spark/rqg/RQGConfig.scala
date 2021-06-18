@@ -5,7 +5,6 @@ import scala.collection.JavaConverters._
 import com.typesafe.config.{Config, ConfigFactory}
 
 class RQGConfig(config: Config) {
-
   def getBound(entry: RQGConfigEntry): (Int, Int) = {
     if (config.hasPath(entry.key)) {
       val v = config.getIntList(entry.key)
@@ -33,19 +32,40 @@ class RQGConfig(config: Config) {
     }
   }
 
-  def getSparkConfigs: Map[String, Array[String]] = {
-    if (config.hasPath(RQGConfig.SPARK_CONF)) {
-      config.getConfig(RQGConfig.SPARK_CONF).entrySet().asScala.map { v =>
-        v.getKey -> config.getStringList(RQGConfig.SPARK_CONF + "." + v.getKey).asScala.toArray
+  private def getSparkConfig(key: String): Map[String, String] = {
+    require(key == RQGConfig.REFERENCE_SPARK_CONF || key == RQGConfig.TEST_SPARK_CONF ||
+      key == RQGConfig.COMMON_SPARK_CONF)
+    if (config.hasPath(key)) {
+      config.getConfig(key).entrySet().asScala.map { v =>
+        v.getKey -> config.getString(s"$key.${v.getKey}")
       }.toMap
     } else {
       Map.empty
     }
   }
+
+  def getReferenceSparkConfig: Map[String, String] = {
+    getSparkConfig(RQGConfig.COMMON_SPARK_CONF) ++ getSparkConfig(RQGConfig.REFERENCE_SPARK_CONF)
+  }
+
+  def getTestSparkConfig: Map[String, String] = {
+    getSparkConfig(RQGConfig.COMMON_SPARK_CONF) ++ getSparkConfig(RQGConfig.TEST_SPARK_CONF)
+  }
+
+  /**
+   * Returns the list of whitelisted expressions. If no list is specified, returns `None`, which
+   * represents all expressions being active.
+   */
+  def getWhitelistExpressions: Option[Seq[String]] = {
+    if (config.hasPath(RQGConfig.EXPRESSIONS)) {
+      Some(config.getStringList(RQGConfig.EXPRESSIONS).asScala)
+    } else {
+      None
+    }
+  }
 }
 
 object RQGConfig {
-
   private val defaultDataTypeWeights =
     WeightEntry("Int", 10d) :: WeightEntry("TinyInt", 2d) :: WeightEntry("SmallInt", 2d) ::
       WeightEntry("BigInt", 2d) :: WeightEntry("Float", 2d) :: WeightEntry("Double", 5d) ::
@@ -57,6 +77,9 @@ object RQGConfig {
   val DATA_GENERATOR_PROFILE = "DATA_GENERATOR_PROFILE"
   val QUERY_PROFILE = "QUERY_PROFILE"
   val SPARK_CONF = "SPARK_CONF"
+  val COMMON_SPARK_CONF = s"$SPARK_CONF.COMMON"
+  val REFERENCE_SPARK_CONF = s"$SPARK_CONF.REFERENCE"
+  val TEST_SPARK_CONF = s"$SPARK_CONF.TEST"
 
   /** ----------------- QUERY PROFILE ------------------- */
 
@@ -64,6 +87,7 @@ object RQGConfig {
   val BOUNDS = s"$QUERY_PROFILE.BOUNDS"
   val QUERY_WEIGHTS = s"$QUERY_PROFILE.WEIGHTS"
   val PROBABILITIES = s"$QUERY_PROFILE.PROBABILITIES"
+  val EXPRESSIONS = s"$QUERY_PROFILE.EXPRESSIONS"
 
   // Bounds
   val MAX_NESTED_QUERY_COUNT = RQGConfigEntry(s"$BOUNDS.MAX_NESTED_QUERY_COUNT", (0, 2))
@@ -99,7 +123,7 @@ object RQGConfig {
   // Category of data generator profile
   val DATA_GENERATOR_PROBABILITIES = s"$DATA_GENERATOR_PROFILE.PROBABILITIES"
 
-  val DATA_GENERATOR_NULL = RQGConfigEntry(s"$DATA_GENERATOR_PROBABILITIES.NULL", 0.5d)
+  val DATA_GENERATOR_NULL = RQGConfigEntry(s"$DATA_GENERATOR_PROBABILITIES.NULL", 0.1d)
 
   def load(path: String = ""): RQGConfig = {
     if (path.isEmpty) {
@@ -111,5 +135,4 @@ object RQGConfig {
 }
 
 case class RQGConfigEntry(key: String, defaultValue: Any)
-
 case class WeightEntry(key: String, value: Double)

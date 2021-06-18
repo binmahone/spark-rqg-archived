@@ -12,6 +12,7 @@ trait DataType[T] extends WeightedChoice {
   def sameType(other: DataType[_]): Boolean = this == other
   def acceptsType(other: DataType[_]): Boolean = sameType(other)
   override def weightName: String = typeName
+  def toSql: String = sparkType.sql
 }
 
 trait ComplexType[T] extends DataType[T] {
