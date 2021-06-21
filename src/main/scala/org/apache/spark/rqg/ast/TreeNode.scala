@@ -1,8 +1,7 @@
 package org.apache.spark.rqg.ast
 
-import org.apache.spark.rqg.{DataType, RQGConfig}
+import org.apache.spark.rqg._
 import org.apache.spark.rqg.ast.relations.RelationPrimary
-import com.typesafe.config.ConfigFactory
 
 /**
  * A TreeNode represents a part of a Query.
@@ -49,7 +48,6 @@ case class QueryContext(
     var availableTables: Array[Table] = Array.empty,
     var availableRelations: Array[RelationPrimary] = Array.empty,
     var joiningRelation: Option[RelationPrimary] = None,
-    var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes,
     var allowedNestedExpressionCount: Int = 5,
     var allowedNestedSubQueryCount: Int = 2,
     var requiredRelationalExpressionCount: Int = 0,
@@ -57,6 +55,20 @@ case class QueryContext(
     var needColumnFromJoiningRelation: Boolean = false,
     var aggPreference: Int = AggPreference.FORBID,
     var nextAliasId: Int = 0) {
+
+  var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes(rqgConfig)
+
+  lazy val allowedFunctions: Seq[Function] = {
+    rqgConfig.getWhitelistExpressions match {
+      case Some(whitelist) =>
+        // Only allow functions that are in the whitelist.
+        val normalizedWhitelist = whitelist.map(_.toLowerCase().trim)
+        Functions.getFunctions.filter(
+          func => normalizedWhitelist.contains(func.name.toLowerCase().trim))
+      case None => Functions.getFunctions
+    }
+  }
+
   def nextAlias(prefix: String): String = {
     val id = nextAliasId
     nextAliasId += 1
@@ -86,13 +98,9 @@ case class QueryContext(
 
   def commonDataTypesForJoin: Array[DataType[_]] = {
     joiningRelation.map(_.columns.map(_.dataType))
-      .map(_.intersect(dataTypesInAvailableRelations))
-      .getOrElse(dataTypesInAvailableRelations)
-      .distinct
-  }
-
-  def relationsBasedOnAllowedDataType: Array[RelationPrimary] = {
-    availableRelations.filter(_.dataTypes.exists(dt => allowedDataTypes.exists(dt.sameType)))
+        .map(_.intersect(dataTypesInAvailableRelations))
+        .getOrElse(dataTypesInAvailableRelations)
+        .distinct
   }
 }
 
@@ -104,6 +112,10 @@ case class Table(name: String, columns: Array[Column]) {
     name == other.name && columns.sameElements(other.columns)
   }
 
+  override def toString: String = {
+    s"$name - ${columns.mkString(", ")}"
+  }
+
   def schemaString: String = {
     columns.map(column => s"${column.name} ${column.dataType.toSql}").mkString(", ")
   }
@@ -112,7 +124,9 @@ case class Table(name: String, columns: Array[Column]) {
 /**
  * Represents a column from db
  */
-case class Column(tableName: String, name: String, dataType: DataType[_])
+case class Column(tableName: String, name: String, dataType: DataType[_]) {
+  def sql: String = s"$tableName.$name"
+}
 
 object AggPreference {
   val PREFER = 0

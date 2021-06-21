@@ -2,8 +2,6 @@ package org.apache.spark.rqg
 
 import scala.util.Random
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.types.StructField
-import org.apache.spark.sql.{types => sparktypes}
 
 final case class RQGEmptyChoiceException(
     private val message: String = "",
@@ -11,8 +9,7 @@ final case class RQGEmptyChoiceException(
   extends Exception(message, cause)
 
 object RandomUtils extends Logging {
-
-  private var rqgConfig: RQGConfig = RQGConfig.load()
+  private val rqgConfig: RQGConfig = RQGConfig.load()
   private var randomSeed: Int = new Random().nextInt()
   private var random: Random = _
   private var valueGenerator: ValueGenerator = _
@@ -21,7 +18,7 @@ object RandomUtils extends Logging {
     if (random == null) {
       random = new Random(randomSeed)
       valueGenerator = new ValueGenerator(random)
-      logInfo(s"RandomUtils inited with randomSeed = $randomSeed")
+      logDebug(s"RandomUtils inited with randomSeed = $randomSeed")
     }
   }
 
@@ -41,7 +38,7 @@ object RandomUtils extends Logging {
       this.random = null
       this.valueGenerator = null
     } else {
-      logInfo(s"RandomUtils is already inited. new seed: $randomSeed doesn't take effect")
+      logDebug(s"RandomUtils is already inited. new seed: $randomSeed doesn't take effect")
     }
   }
 
@@ -100,79 +97,69 @@ object RandomUtils extends Logging {
     }
   }
 
-  def generateRandomStructSchema(nestedCountOfStruct: Int): sparktypes.DataType = {
-    // This count how many time the element inside a struct can be nested.
-    // The element cannot be struct
-    val (minNested, maxNested) = rqgConfig.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
-    val randomNestedInFields = RandomUtils.choice(minNested, maxNested)
-    sparktypes.StructType(generateRandomStructFields(nestedCountOfStruct, randomNestedInFields))
-  }
-
   /**
-   * Generate random struct fields. A field can be another struct, array, map, or primitive types
-   * @param nestedCountOfStruct this count how many time a struct can be nested
-   * @param nestedCountOfFields this count how many time the element inside a struct can be nested.
-   *                            The element cannot be struct
-   * @return an Array of struct fields
+   * Generates a random data type, selecting types from the list of allowed types. If
+   * `nestedCount >= 1`, the data type may be a struct, array, or map: each nested type is also
+   * selected from `allowedTypes`. If `nestedCount` is None, the `RQGConfig` value is used.
+   *
+   * `allowedDataTypes` treats nested and parameterized types as "generic", i.e., if
+   * `allowedDataTypes` contains a STRUCT, the struct fields will be generated randomly. Use
+   * `choice()` if you want to pick an exact data type from the list of allowed types.
    */
-  def generateRandomStructFields(nestedCountOfStruct: Int, nestedCountOfFields: Int): Array[sparktypes.StructField] = {
-    val length = getRandom.nextInt(2) + 1
-    (0 to length).toArray.zipWithIndex.map( {
-      case (_, index) =>
-        // if we randomly should generate spark datatype (other than struct)
-        // or struct cannot be nested anymore
-        if (getRandom.nextBoolean() || nestedCountOfStruct == 0) {
-          val generated = generateRandomSparkDataType(nestedCountOfFields)
-          StructField(generated.typeName + index, generated)
-        } else {
-          // Struct can be nested
-          val generatedStruct = generateRandomStructSchema(nestedCountOfStruct - 1)
-          StructField(generatedStruct.typeName + index, generatedStruct)
-        }
-    })
-  }
+  def generateRandomDataType(
+      allowedTypes: Array[DataType[_]],
+      maxNestingDepthOpt: Option[Int] = None,
+      weightsOpt: Option[List[WeightEntry]] = None): DataType[_] = {
+    // Find the max allowed nesting depth.
+    val (_, confMaxNestingDepth) =
+      rqgConfig.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+    val maxNestingDepth = maxNestingDepthOpt.getOrElse(confMaxNestingDepth)
 
-  /**
-   * Generate a random ArrayType
-   * @param nestedCount how many times this arraytype can be nested
-   * @param cannotBeMap This means if the parent of this array is map, then its children cannot be map
-   *                    For ex: This is invalid: Map<Array<Map<....>>>
-   *                            But, this is valid: Array<Map<...>>
-   * @return a random ArrayType
-   */
-  def generateRandomArray(nestedCount: Int, cannotBeMap: Boolean): sparktypes.DataType = {
-    sparktypes.ArrayType(generateRandomSparkDataType(nestedCount - 1, cannotBeMap))
-  }
+    // If the nesting depth is 0, we must pick a non-nested type.
+    val filteredChoices = allowedTypes.filter {
+      case _: StructType | _: ArrayType | _: MapType if maxNestingDepth <= 0 => false
+      case _ => true
+    }
 
-  def generateRandomMap(nestedCount: Int): sparktypes.DataType = {
-    sparktypes.MapType(
-      generateRandomSparkDataType(nestedCount - 1, cannotBeMap = true),
-      generateRandomSparkDataType(nestedCount - 1))
-  }
+    val typeToGenerate = weightsOpt match {
+      case Some(weights) => this.choice(filteredChoices, weights)
+      case None => this.nextChoice(filteredChoices)
+    }
 
-  /**
-   * Generate randomly nested spark data type
-   * @param nestedCount number of times a datatype can be nested
-   *                    Ex:
-   *                    Array<Int> = 0
-   *                    Array<Array<Int>> = 1
-   *                    Array<Array<Array<Int>>> = 2
-   * @param cannotBeMap this dataType cannot be or contain MapType
-   *                    Spark Rule: TypeCheckResult.TypeCheckFailure("The key of map cannot be/contain map.")
-   * @return a randomly nested or non-nested spark data type
-   */
-  def generateRandomSparkDataType(nestedCount: Int = 1, cannotBeMap: Boolean = false): sparktypes.DataType = {
-    if (nestedCount == 0 || getRandom.nextBoolean()) {
-      nextChoice(DataType.primitiveSparkDataTypes)
-    } else if (nestedCount > 0) {
-      val choice = RandomUtils.choice(0, 1)
-        if (cannotBeMap || choice == 0) {
-          generateRandomArray(nestedCount, cannotBeMap)
-        } else {
-          generateRandomMap(nestedCount)
-        }
-    } else {
-      nextChoice(DataType.primitiveSparkDataTypes)
+    typeToGenerate match {
+      case _: StructType =>
+        val numStructFields = 1 + nextInt(2)
+        // TODO(shoumik): No decimal because it complicates the parsing of the schema string..
+        val allowedTypesWithoutDecimal = allowedTypes.filterNot(_.isInstanceOf[DecimalType])
+        val fields = (0 until numStructFields).map { fieldIdx =>
+          val generated = generateRandomDataType(
+            allowedTypesWithoutDecimal,
+            Some(maxNestingDepth - 1),
+            weightsOpt)
+          StructField(s"${generated.fieldName}$fieldIdx", generated)
+        }.toArray
+        StructType(fields)
+      case _: MapType =>
+        MapType(
+          // Map keys are not allowed to be maps in Spark.
+          generateRandomDataType(
+            allowedTypes.filter(_.isInstanceOf[MapType]),
+            Some(maxNestingDepth - 1),
+            weightsOpt),
+          generateRandomDataType(
+            allowedTypes,
+            Some(maxNestingDepth - 1),
+            weightsOpt)
+        )
+      case _: ArrayType =>
+        ArrayType(
+          generateRandomDataType(allowedTypes, Some(maxNestingDepth - 1), weightsOpt)
+        )
+      case _: DecimalType =>
+        val precision = RandomUtils.choice(1, DecimalType.MAX_PRECISION)
+        val scale = RandomUtils.choice(0, precision)
+        DecimalType(precision, scale)
+      case other => other
     }
   }
 }

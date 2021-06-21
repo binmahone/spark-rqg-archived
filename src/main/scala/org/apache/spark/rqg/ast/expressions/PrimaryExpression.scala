@@ -260,79 +260,83 @@ class FunctionCall(
     requiredDataType: DataType[_],
     isLast: Boolean) extends PrimaryExpression {
 
-  queryContext.allowedNestedExpressionCount -= 1
 
-  val func: Function = generateFunction
-
-  val arguments: Seq[BooleanExpression] = generateArguments
+  val func: Function = Functions.resolveGenerics(
+    generateFunction, DataType.supportedDataTypes(queryContext.rqgConfig), requiredDataType)
+  val arguments: Seq[Expression] = generateArguments
 
   /**
-   * Check all parent to see if they don't satisfies these rules
-   *    nondeterministic expressions are only allowed in
-   *    Project, Filter, Aggregate or Window
-   * This is the spark rule that only allows nondeterministic function
-   * in certain clause only
+   * Check all parent to see if they don't satisfies these rules nondeterministic expressions are
+   * only allowed in Project, Filter, Aggregate or Window This is the spark rule that only allows
+   * nondeterministic function in certain clause only.
    *
    * @param parent ast parent
    * @return whether or not the function is not valid
    */
   private def notValid(parent: Option[TreeNode]): Boolean = {
-    if (parent.isEmpty) {
-      return false
-    }
+    if (parent.isEmpty) return false
     parent.get match {
-      case j: JoinCriteria => true
+      case _: JoinCriteria => true
       case f: FunctionCall =>
-        if (f.func.isAgg) {
-          true
-        } else {
-          notValid(parent.get.parent)
-        }
+        if (f.func.isAgg) true else notValid(parent.get.parent)
       case _ => notValid(parent.get.parent)
     }
   }
 
-  private def generateFunction: Function = {
-    val functions = (if (queryContext.aggPreference == AggPreference.FORBID) {
-      FunctionCall.supportedFunctions.filterNot(_.isAgg)
-    } else if (queryContext.needGenerateAggFunction) {
-      FunctionCall.supportedFunctions.filter(_.isAgg)
-    } else if (notValid(parent)){
-      FunctionCall.supportedFunctions.filterNot(_.nondeterministic)
-    } else {
-      FunctionCall.supportedFunctions
-    }).toArray
-
-    RandomUtils.nextChoice(functions.filter(f => f.returnType.sparkType.sameType(requiredDataType.sparkType)))
+  /**
+   * Generate the function to use.
+   */
+  protected def generateFunction: Function = {
+    val supportedFunctions = queryContext.allowedFunctions
+    val functions = (if (queryContext.aggPreference == AggPreference.FORBID) supportedFunctions.filterNot(_.isAgg) else if (queryContext.needGenerateAggFunction) supportedFunctions.filter(_.isAgg) else if (notValid(parent)) supportedFunctions.filterNot(_.nondeterministic) else supportedFunctions).toArray
+    RandomUtils.nextChoice(
+      functions.filter(f => f.returnType.isInstanceOf[GenericNamedType] ||
+          f.returnType.sparkType.sameType(requiredDataType.sparkType)))
   }
 
-  private def generateArguments: Seq[BooleanExpression] = {
-    val previous = queryContext.aggPreference
+  /**
+   * Generate arguments for the selected expression, resolving any generics along the way.
+   */
+  private def generateArguments = {
+    // Generics should be resolved by this point.
+    require(!func.returnType.isInstanceOf[GenericNamedType])
+    require(!func.inputTypes.exists(_.isInstanceOf[GenericNamedType]))
+    queryContext.allowedNestedExpressionCount -= 1
+    val previousAggPreference = queryContext.aggPreference
     if (func.isAgg) queryContext.aggPreference = AggPreference.FORBID
     val length = func.inputTypes.length
-    val arguments = func.inputTypes.zipWithIndex.map {
-      case (dt, idx) =>
-        BooleanExpression(queryContext, Some(this), dt, isLast = idx == (length - 1))
+    val arguments = func.inputTypes.zipWithIndex.map { case (dt, idx) =>
+      ValueExpression(queryContext, Some(this), dt, isLast = idx == (length - 1))
     }
-    if (previous != AggPreference.FORBID) queryContext.aggPreference = AggPreference.ALLOW
+    // Restore original preferences.
+    queryContext.aggPreference = previousAggPreference
+    queryContext.allowedNestedExpressionCount += 1
     arguments
   }
 
-  override def sql: String = {
-    if (func.isAgg &&
-        func.name != "first" &&
-        arguments.size < 2 &&
-        RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.DISTINCT_IN_FUNCTION))) {
-      s"${func.name}(distinct ${arguments.map(_.sql).mkString(", ")})"
-    } else {
-      s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
-    }
-  }
+  /**
+   * Converts the function call to SQL. Some expressions need special handling here
+   * (e.g., CASE WHEN).
+   *
+   * TODO(shoumik): This should probably be refactored at some point...
+   */
+  override def sql: String = if (func.isAgg &&
+      func.name != "first" &&
+      arguments.size < 2 &&
+      RandomUtils.nextBoolean(
+        queryContext.rqgConfig.getProbability(RQGConfig.DISTINCT_IN_FUNCTION))) s"${func.name}(distinct ${arguments.map(_.sql).mkString(", ")})" else if (func.name == "case_when") {
+    assert(arguments.size % 2 == 1 && arguments.size > 1)
+    // Partition into when and then expressions. The last argument is the ELSE; the remaining
+    // arguments alternate between the WHEN Expression and the THEN expression.
+    val (whenExprs, thenExprs) = arguments.dropRight(1).zipWithIndex.partition(_._2 % 2 == 0)
+    val cases = whenExprs.zip(thenExprs).map {
+      case ((whenExpr, _), (thenExpr, _)) => s" WHEN ${whenExpr.sql} THEN ${thenExpr.sql}"
+    }.mkString
+    val elseCase = " ELSE " + arguments.last.sql
+    "(CASE" + cases + elseCase + " END)"
+  } else if (func.name == "is_null") s"(${arguments(0).sql} IS NULL)" else s"${func.name}(${arguments.map(_.sql).mkString(", ")})"
 
-  override def name: String = dataType match {
-    case _: DecimalType => "func_decimal"
-    case _ => s"func_${dataType.typeName}"
-  }
+  override def name = s"func_${dataType.fieldName}"
 
   override def dataType: DataType[_] = func.returnType
 
@@ -340,7 +344,7 @@ class FunctionCall(
 
   override def columns: Seq[ColumnReference] = arguments.flatMap(_.columns)
 
-  override def nonAggColumns: Seq[ColumnReference] = if (isAgg) Seq.empty else columns
+  override def nonAggColumns: Seq[ColumnReference] = columns.filterNot(_.isAgg)
 }
 
 /**
@@ -351,29 +355,22 @@ object FunctionCall extends ExpressionGenerator[FunctionCall] {
       querySession: QueryContext,
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
-      isLast: Boolean): FunctionCall = {
-    new FunctionCall(querySession, parent, requiredDataType, isLast)
-  }
-
-  private def supportedFunctions = Functions.registeredFunctions
-
-  override def canGeneratePrimitive: Boolean = false
+      isLast: Boolean) = new FunctionCall(querySession, parent, requiredDataType, isLast)
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
-    Functions.registeredFunctions.map(_.returnType)
-    (if (querySession.aggPreference == AggPreference.FORBID) {
-      supportedFunctions.filterNot(_.isAgg)
-    } else {
-      supportedFunctions
-    }).map(_.returnType)
+    (if (querySession.aggPreference == AggPreference.FORBID) querySession.allowedFunctions.filterNot(_.isAgg) else querySession.allowedFunctions).map(_.returnType).distinct
   }.toArray
 
-  override def canGenerateRelational: Boolean = false
+  override def canGeneratePrimitive = false
 
-  override def canGenerateNested: Boolean = true
+  override def canGenerateRelational = false
 
-  override def canGenerateAggFunc: Boolean = true
+  override def canGenerateNested = true
+
+  override def canGenerateAggFunc = true
 }
+
+
 
 /**
  * Random pick a column from available relations

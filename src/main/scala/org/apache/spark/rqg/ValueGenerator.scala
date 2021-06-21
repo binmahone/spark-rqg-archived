@@ -8,39 +8,12 @@ import org.apache.spark.sql.{Row, types => sparktypes}
 
 class ValueGenerator(random: Random) {
 
-  def getRandomEpochTime(): Long = {
-    val currentTime = System.currentTimeMillis()
-    val randomVal = random.nextDouble()
-    val randomEpochTime = (randomVal * currentTime).toLong
-    randomEpochTime
-  }
+  // Random seed time. Represents ~3:10PM PDT on 12/08/20.
+  val SEED_EPOCH_TIME = 1607469075134L
 
-  /**
-   * Generate value based on spark DataType
-   *
-   * @param dataType The dataType
-   * @return A value of Scala type depends on spark type
-   */
-  def generateWithSparkType(dataType: sparktypes.DataType): Any = {
-    // First try to filter with primitives type
-    val innerTypes = DataType.supportedDataTypes.filter(dt => dt.sparkType == dataType)
-    if (!innerTypes.isEmpty) {
-      // Found primitive type
-      val innerType = innerTypes.head
-      generateValue(innerType)
-    } else {
-      // Cannot find primitive type, must be complex type
-      val complexType: DataType[_] = if (dataType.isInstanceOf[sparktypes.ArrayType]) {
-        ArrayType(dataType.asInstanceOf[sparktypes.ArrayType].elementType)
-      } else if(dataType.isInstanceOf[sparktypes.MapType]) {
-        val keyType = dataType.asInstanceOf[sparktypes.MapType].keyType
-        val valType = dataType.asInstanceOf[sparktypes.MapType].valueType
-        MapType(keyType, valType)
-      } else {
-        StructType(dataType.asInstanceOf[sparktypes.StructType].fields)
-      }
-      generateValue(complexType)
-    }
+  def getRandomEpochTime(): Long = {
+    val randomVal = random.nextDouble()
+    (randomVal * SEED_EPOCH_TIME).toLong
   }
 
   def generateValue[T](dataType: DataType[T]): T = {
@@ -74,26 +47,28 @@ class ValueGenerator(random: Random) {
         }
         sb.toString
       case d: DecimalType =>
-        BigDecimal((random.nextLong() % d.bound) / d.fractional)
+        // Get the number of bits in the biggest number possible for this precision.
+        val maxNumBits = new java.math.BigInteger("9" * d.precision).bitLength()
+        // Create a random decimal with one less than the maximum number of bits.
+        val unscaledValue = new java.math.BigInteger(scala.math.max(1, maxNumBits - 1), random.self)
+        val res = BigDecimal(
+          new java.math.BigDecimal(unscaledValue, d.scale, new java.math.MathContext(d.precision)))
+        res
       case a: ArrayType =>
         val randomLength = random.nextInt(5) + 1
-        (0 to randomLength).toArray.map(_ => generateWithSparkType(a.innerType))
+        (0 to randomLength).toArray.map(_=> generateValue(a.innerType))
       case m: MapType =>
         val randomLength = random.nextInt(5) + 1
         // generate two lists of key and value based the their types
-        val keyList = (0 to randomLength).toArray.map(_ => generateWithSparkType(m.keyType))
-        val valList = (0 to randomLength).toArray.map(_ => generateWithSparkType(m.valueType))
-
+        val keyList = (0 to randomLength).toArray.map(_ => generateValue(m.keyType))
+        val valList = (0 to randomLength).toArray.map(_ => generateValue(m.valueType))
         val res = mutable.Map[T, T]()
-
         for (i <- 0 to randomLength) {
           res += (keyList(i).asInstanceOf[T] -> valList(i).asInstanceOf[T])
         }
         return res.asInstanceOf[T]
       case s: StructType =>
-        val array = s.fields.map(x => {
-          generateWithSparkType(x.dataType)
-        })
+        val array = s.fields.map(field => generateValue(field.dataType))
         Row.fromSeq(array)
       case x =>
         // TODO: Char, Varchar, Binary, Interval

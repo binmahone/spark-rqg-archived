@@ -153,37 +153,13 @@ case class DataGenerator(
   }
 
   private def generateRandomRQGTable(tableName: String): RQGTable = {
-    val provider = RandomUtils.nextChoice(allowedDataSources)
+    val provider = "parquet"
     val columnCount = RandomUtils.choice(minColumnCount, maxColumnCount)
     val config = RQGConfig.load(rqgConfigPath)
     val (_, maxNestingDepth) = config.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
+    val supportedDataTypes = DataType.supportedDataTypes(config)
     val columns = (1 to columnCount).map { idx =>
-      val dataType =
-        RandomUtils.nextChoice(DataType.supportedDataTypes) match {
-          case d: DecimalType =>
-            val precision = RandomUtils.choice(4, 20)
-            val scale = RandomUtils.choice(0, precision)
-            d.copy(precision = precision, scale = scale)
-          case a: ArrayType => {
-            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
-            val nestedCount = RandomUtils.choice(minNested, maxNested)
-            ArrayType(RandomUtils.generateRandomSparkDataType(nestedCount))
-          }
-          case m: MapType =>
-            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
-            val nestedCount = RandomUtils.choice(minNested, maxNested)
-            MapType(
-              RandomUtils.generateRandomSparkDataType(nestedCount),
-              RandomUtils.generateRandomSparkDataType(nestedCount)
-            )
-          case s: StructType =>
-            val (minNested, maxNested) = RQGConfig.load().getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)
-            val nestedCountOfStruct = RandomUtils.choice(minNested, maxNested)
-            val nestedCountOfFields = RandomUtils.choice(minNested, maxNested)
-            StructType(RandomUtils.generateRandomStructFields(nestedCountOfStruct, nestedCountOfFields))
-          case x => x
-        }
-
+      val dataType = RandomUtils.generateRandomDataType(supportedDataTypes, Some(maxNestingDepth))
       RQGColumn(s"column_$idx", dataType)
     }
     RQGTable(dbName, tableName, columns, provider, warehouse)

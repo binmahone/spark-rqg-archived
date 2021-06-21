@@ -1,10 +1,16 @@
 package org.apache.spark.rqg
 
-
 package object ast {
   case class Operator(name: String, op: String)
 
-  case class Function(name: String, returnType: DataType[_], inputTypes: Seq[DataType[_]], isAgg: Boolean, nondeterministic: Boolean)
+  case class Function(
+    name: String,
+    returnType: DataType[_],
+    inputTypes: Seq[DataType[_]],
+    isAgg: Boolean,
+    nondeterministic: Boolean) {
+    override def toString = s"${name}(${inputTypes.mkString(",")}) -> ${returnType}"
+  }
 
   case class JoinType(name: String, weightName: String) extends WeightedChoice
 

@@ -8,6 +8,9 @@ import org.apache.spark.sql.{types => sparktypes}
 
 import scala.collection.mutable.{ArrayBuffer, Map}
 
+/**
+ * A dummy expression that has the given return type.
+ */
 class Dummy(chosenType: sparktypes.DataType) extends Expression {
   override def nullable: Boolean = false
 
@@ -15,9 +18,9 @@ class Dummy(chosenType: sparktypes.DataType) extends Expression {
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = ???
 
-  override def dataType: sparktypes.DataType = sparktypes.ArrayType(sparktypes.IntegerType)
+  override def dataType: sparktypes.DataType = chosenType
 
-  override def children: Seq[Expression] = ???
+  override def children: Seq[Expression] = Seq()
 
   override def productElement(n: Int): Any = 0
 
@@ -27,36 +30,57 @@ class Dummy(chosenType: sparktypes.DataType) extends Expression {
 }
 
 object FunctionHelper {
-  val random = RandomUtils.getRandom
-  val valueGenerator = RandomUtils.getValueGenerator
-
-  def getArgs(paramTypes: Array[Class[_]], dataType: sparktypes.DataType): ArrayBuffer[Object] = {
+  /**
+   * Generates arguments that are compatible with `paramTypes`. If `dataTypes` is provided,
+   * [[org.apache.spark.sql.catalyst.expressions.Expression]] arguments are set to the provided
+   * types, from left to right in the order provided. This function is guaranteed to be
+   * deterministic.
+   */
+  def getArgs(
+    paramTypes: Array[Class[_]],
+    dataTypes: Option[Seq[sparktypes.DataType]] = None): ArrayBuffer[Object] = {
     var args = ArrayBuffer[Object]()
+    var typeIndex = 0
+    val sparkDataTypes = dataTypes.getOrElse(
+      Seq.fill(paramTypes.size)(sparktypes.IntegerType))
     paramTypes.foreach(p => {
       if (p == classOf[Expression]) {
-        args += new Dummy(dataType)
-      } else if (p == classOf[Seq[_]]) {
-        args += Seq(new Dummy(dataType))
+        args += new Dummy(sparkDataTypes(typeIndex))
+        typeIndex += 1
+      } else if (p == classOf[Seq[Expression]]) {
+        args += Seq(new Dummy(sparkDataTypes(typeIndex)))
+        typeIndex += 1
       } else if (p == classOf[Int]) {
-        args += valueGenerator.generateValue(IntType).asInstanceOf[Object]
+        // Use "large" numbers here and below since some expressions require constants to be within
+        // some bound. By using a large number, we can exceed that bound and catch these errors
+        // while registering functions.
+        args += (999999).asInstanceOf[Object]
       } else if (p == classOf[Long]) {
-        args += valueGenerator.generateValue(BigIntType).asInstanceOf[Object]
+        args += (999999).asInstanceOf[Object]
       } else if (p == classOf[Double]) {
-        args += valueGenerator.generateValue(DoubleType).asInstanceOf[Object]
+        args += (999999.999999).asInstanceOf[Object]
       } else if (p == classOf[Char]) {
-        args += random.nextPrintableChar().asInstanceOf[Object]
+        args += ('?').asInstanceOf[Object]
       } else if (p == classOf[String]) {
-        args += valueGenerator.generateValue(StringType).asInstanceOf[Object]
+        args += ("???").asInstanceOf[Object]
       } else if (p == classOf[Option[_]]) {
         args += None
       } else if (p == classOf[StructType]) {
         args += StructType(Array(
-          sparktypes.StructField("a", sparktypes.StringType, false),
-          sparktypes.StructField("a1", sparktypes.StringType, false)
+          sparktypes.StructField("s0", sparktypes.StringType, false),
+          sparktypes.StructField("s1", sparktypes.StringType, false)
           )
         )
       } else if (p == classOf[Map[_, _]]) {
+        // Create a dummy map
         args += Map("red" -> "#FF0000", "azure" -> "#F0FFFF")
+      } else if (p == classOf[Boolean]) {
+        // TODO(shoumik): Generate false here since most uses of booleans in expressions is to
+        //  specify whether we use ANSI/crash on error. It might be better to just specify these
+        //  functions manually, however.
+        args += (false).asInstanceOf[Object]
+      } else {
+        throw new IllegalArgumentException(s"Unknown argument type $p in function registry.")
       }
     })
     args

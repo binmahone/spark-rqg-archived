@@ -377,15 +377,15 @@ object QueryGenerator extends Runner {
       case "date" => DateType
       case "timestamp" => TimestampType
       case arrayPattern(inner) =>
-        ArrayType(parseDataType(inner).sparkType)
+        ArrayType(parseDataType(inner))
       case mapPattern1(keyType, valueType) =>
-        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+        MapType(parseDataType(keyType), parseDataType(valueType))
       case mapPattern2(keyType, valueType) =>
-        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+        MapType(parseDataType(keyType), parseDataType(valueType))
       case mapPattern3(keyType, valueType) =>
-        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+        MapType(parseDataType(keyType), parseDataType(valueType))
       case mapPattern4(keyType, valueType) =>
-        MapType(parseDataType(keyType).sparkType, parseDataType(valueType).sparkType)
+        MapType(parseDataType(keyType), parseDataType(valueType))
       case structPattern(inner) =>
         val s = inner + ","
         var i = 0
@@ -407,8 +407,8 @@ object QueryGenerator extends Runner {
         }
         val arr = split.map(x => x.replaceFirst("\\w*:", "")).toArray
         val fields = arr.zipWithIndex.map { case (field, index) =>
-          val parsedType = parseDataType(field).sparkType
-          org.apache.spark.sql.types.StructField(parsedType.typeName + index, parsedType)
+          val parsedType = parseDataType(field)
+          StructField(parsedType.fieldName + index, parsedType)
         }
         StructType(fields)
       case decimalPattern(precision, scale) => DecimalType(precision.toInt, scale.toInt)
