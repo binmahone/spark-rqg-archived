@@ -153,7 +153,7 @@ case class DataGenerator(
   }
 
   private def generateRandomRQGTable(tableName: String): RQGTable = {
-    val provider = "parquet"
+    val provider = RandomUtils.nextChoice(allowedDataSources)
     val columnCount = RandomUtils.choice(minColumnCount, maxColumnCount)
     val config = RQGConfig.load(rqgConfigPath)
     val (_, maxNestingDepth) = config.getBound(RQGConfig.MAX_NESTED_COMPLEX_DATA_TYPE_COUNT)

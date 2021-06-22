@@ -56,8 +56,6 @@ case class QueryContext(
     var aggPreference: Int = AggPreference.FORBID,
     var nextAliasId: Int = 0) {
 
-  var allowedDataTypes: Array[DataType[_]] = DataType.supportedDataTypes(rqgConfig)
-
   lazy val allowedFunctions: Seq[Function] = {
     rqgConfig.getWhitelistExpressions match {
       case Some(whitelist) =>
@@ -93,14 +91,34 @@ case class QueryContext(
   }
 
   def dataTypesInAvailableRelations: Array[DataType[_]] = {
-    allowedDataTypes.intersect(availableRelations.flatMap(_.columns).map(_.dataType)).distinct
+    val supportedDataTypes = DataType.supportedDataTypes(rqgConfig)
+    val typesInRelations = availableRelations.flatMap(_.flattenedColumns).map(_.dataType)
+    // This is all non-parameterized types.
+    val allowedNoParameters = supportedDataTypes.filterNot(_.hasParameters).intersect(typesInRelations)
+    // All available types that have parameters/nested types.
+    val allowedWithParameters = supportedDataTypes.filter(_.hasParameters).flatMap {
+      case _: MapType => typesInRelations.filter(_.isInstanceOf[MapType])
+      case _: StructType => typesInRelations.filter(_.isInstanceOf[StructType])
+      case _: ArrayType => typesInRelations.filter(_.isInstanceOf[ArrayType])
+      case _: DecimalType => typesInRelations.filter(_.isInstanceOf[DecimalType])
+      case _ => Seq()
+    }
+    (allowedNoParameters ++ allowedWithParameters).distinct
   }
 
+  /**
+   * Given the current join relation and available relations, returns a list of types that we
+   * can produce a join condition on. We never produce joins over boolean columns, because they can
+   * quickly lead to blow-up/cross join conditions.
+   */
   def commonDataTypesForJoin: Array[DataType[_]] = {
-    joiningRelation.map(_.columns.map(_.dataType))
-        .map(_.intersect(dataTypesInAvailableRelations))
-        .getOrElse(dataTypesInAvailableRelations)
-        .distinct
+    // Find data type that is in the joining relation and in the available relations.
+    val joiningRelationTypes = joiningRelation.map(_.flattenedColumns.map(_.dataType))
+    // Find which data types in the joining relation are also in other available relations.
+    joiningRelationTypes.map(_.intersect(dataTypesInAvailableRelations))
+      .getOrElse(dataTypesInAvailableRelations)
+      .filter(_.isJoinable)
+      .distinct
   }
 }
 

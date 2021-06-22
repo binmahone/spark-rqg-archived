@@ -7,7 +7,6 @@ import scala.util.Random
 import org.scalatest.FunSuite
 
 class TableDataGeneratorSuite extends FunSuite {
-
   test("basic") {
     val rowCount = 100
     val columnInt = RQGColumn("column_int", IntType)

@@ -32,8 +32,9 @@ class QuerySuite extends FunSuite {
       Column("table_5", "column_3",StringType), Column("table_5", "column_4",DecimalType(12,4)),
       Column("table_5", "column_5",IntType))),
     Table("table_6", Array(
-      Column("table_6", "column_1",ArrayType()), Column("table_6", "column_2",MapType()),
-      Column("table_6", "column_3",StructType())))
+      Column("table_6", "column_1",ArrayType(IntType)),
+        Column("table_6", "column_2",MapType(IntType, IntType)),
+      Column("table_6", "column_3", StructType(Array(StructField("col0", IntType))))))
   )
 
   // Use function rather than val in order to generate new querySession every time
@@ -46,7 +47,7 @@ class QuerySuite extends FunSuite {
       try {
         queryValidator.assertValid(Query(querySession, None).sql)
       } catch {
-        case e: RQGEmptyChoiceException => println(e.getMessage)
+        case e: RQGEmptyChoiceException => // println(e.getMessage)
       }
     }
   }

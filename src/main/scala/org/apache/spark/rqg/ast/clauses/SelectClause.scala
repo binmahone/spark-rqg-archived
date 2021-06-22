@@ -1,6 +1,6 @@
 package org.apache.spark.rqg.ast.clauses
 
-import org.apache.spark.rqg.{DataType, MapType, RQGConfig, RandomUtils, StructType}
+import org.apache.spark.rqg.{ArrayType, DataType, MapType, RQGConfig, RandomUtils, StructType}
 import org.apache.spark.rqg.ast.expressions.NamedExpression
 import org.apache.spark.rqg.ast.{AggPreference, NestedQuery, QueryContext, TreeNode, TreeNodeWithParent}
 
@@ -13,50 +13,51 @@ import org.apache.spark.rqg.ast.{AggPreference, NestedQuery, QueryContext, TreeN
  */
 class SelectClause(
     val queryContext: QueryContext,
-    val requiredDataType: Option[DataType[_]],
-    val parent: Option[TreeNode]) extends TreeNode {
+    val parent: Option[TreeNode],
+    val requiredReturnType: Option[DataType[_]]) extends TreeNode {
 
-  // Important: We have to generate namedExpressionSeq before setQuantifier
-  // because setQuantifier depends on namedExpressionSeq dataType
   val namedExpressionSeq: Seq[NamedExpression] = generateNamedExpressionSeq
 
-  // DISTINCT behind the scene use the set operation but set does not support maptype and structtype
-  // Therefore, we need to exclude two of them here
-  val setQuantifier: Option[String] =
-    if (!namedExpressionSeq.head.dataType.isInstanceOf[MapType] &&
-        !namedExpressionSeq.head.dataType.isInstanceOf[StructType] &&
-        RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))) {
-      Some("DISTINCT")
-    } else {
-      None
-    }
-
-  private def generate(minSelectCount: Int, maxSelectCount: Int, dataType: DataType[_]): Seq[NamedExpression] = {
-    (0 until RandomUtils.choice(minSelectCount, maxSelectCount))
-      .map { _ => {
-        val useAgg = RandomUtils.nextBoolean()
-        if (useAgg) {
-          queryContext.aggPreference = AggPreference.PREFER
-        }
-        val (minNested, maxNested) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
-        queryContext.allowedNestedExpressionCount = RandomUtils.choice(minNested, maxNested)
-        NamedExpression(queryContext, Some(this), dataType, isLast = true)
-      }}
+  val setQuantifier: Option[String] = {
+    // In Spark, set operations such as DISTINCT do not support the map type, so don't apply it if
+    // any of the expressions do not support maps.
+    val hasMaps = namedExpressionSeq.exists(e => DataType.containsMap(e.dataType))
+    val useDistinct = RandomUtils.nextBoolean(
+      queryContext.rqgConfig.getProbability(RQGConfig.SELECT_DISTINCT))
+    Some("DISTINCT").filter(_ => useDistinct && !hasMaps)
   }
 
   private def generateNamedExpressionSeq: Seq[NamedExpression] = {
-    var (min, max) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
-    val randomChoiceDataType = RandomUtils.choice(
-      queryContext.allowedDataTypes, queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE))
-    val dataType = requiredDataType.getOrElse(randomChoiceDataType)
-    // TODO: Only if it is a scalar subquery we can only generate at most one column, this can
-    //  be done after the function framework is done as scalar subquery should be generated
-    //  inside a aggregating function
     if (parent.get.isInstanceOf[NestedQuery]) {
-      min = 1
-      max = 1
+      // TODO: Only if it is a scalar subquery we can only generate at most one column, this can
+      //  be done after the function framework is done as scalar subquery should be generated
+      //  inside a aggregating function
+      require(requiredReturnType.nonEmpty)
+      requiredReturnType.map(generate).toSeq
+    } else {
+      val (minExprs, maxExprs) = queryContext.rqgConfig.getBound(RQGConfig.SELECT_ITEM_COUNT)
+      val numExpressions = RandomUtils.choice(minExprs, maxExprs)
+      (0 until numExpressions).map { _ =>
+        // `allDataTypes` okay since the weights will be used to filter out unsupported types.
+        val dataType = RandomUtils.generateRandomDataType(DataType.allDataTypes,
+          weightsOpt = Some(queryContext.rqgConfig.getWeight(RQGConfig.QUERY_DATA_TYPE)))
+        generate(dataType)
+      }
     }
-    generate(min, max, dataType)
+  }
+
+  /**
+   * Generate a single expression with the given `dataType`.
+   */
+  private def generate(dataType: DataType[_]): NamedExpression = {
+    // PHOTON: Don't use aggregations with arrays and structs, since Photon does not support them.
+    val useAgg = RandomUtils.nextBoolean() && !dataType.isInstanceOf[ArrayType] && !dataType.isInstanceOf[StructType]
+    if (useAgg) {
+      queryContext.aggPreference = AggPreference.PREFER
+    }
+    val (minNested, maxNested) = queryContext.rqgConfig.getBound(RQGConfig.MAX_NESTED_EXPR_COUNT)
+    queryContext.allowedNestedExpressionCount = RandomUtils.choice(minNested, maxNested)
+    NamedExpression(queryContext, Some(this), dataType, isLast = true)
   }
 
   override def sql: String = s"SELECT " +
@@ -68,10 +69,8 @@ class SelectClause(
  * SelectClause generator
  */
 object SelectClause extends TreeNodeWithParent[SelectClause] {
-  def apply(
-      querySession: QueryContext,
-      parent: Option[TreeNode],
-      requiredDataType: Option[DataType[_]] = None): SelectClause = {
-    new SelectClause(querySession, requiredDataType, parent)
+  def apply(querySession: QueryContext, parent: Option[TreeNode],
+      requiredReturnType: Option[DataType[_]] = None): SelectClause = {
+    new SelectClause(querySession, parent, requiredReturnType)
   }
 }

@@ -34,7 +34,7 @@ import org.apache.spark.rqg.ast.operators._
 trait BooleanExpression extends TreeNode with Expression
 
 /**
- * BooleanExpression Generator. It random generate one class extends BooleanExpression
+ * BooleanExpression Generator. It randomly generate one class extends BooleanExpression
  */
 object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
   override def apply(
@@ -43,7 +43,7 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): BooleanExpression = {
 
-    val filteredChoices = (if (queryContext.needGeneratePrimitiveExpression) {
+    val filteredChoices = if (queryContext.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else if (queryContext.needGenerateRelationalExpression) {
       choices.filter(_.canGenerateRelational)
@@ -55,8 +55,12 @@ object BooleanExpression extends ExpressionGenerator[BooleanExpression] {
       choices.filter(_.canGenerateNested)
     } else {
       choices
-    }).filter(_.possibleDataTypes(queryContext).exists(requiredDataType.acceptsType))
-    RandomUtils.nextChoice(filteredChoices).apply(queryContext, parent, requiredDataType, isLast)
+    }
+    val finalChoices = filterChoicesForRequiredType[BooleanExpression](
+      queryContext, requiredDataType, filteredChoices.toSeq)
+    val choice = RandomUtils.nextChoice(finalChoices.toArray)
+        .apply(queryContext, parent, requiredDataType, isLast)
+    choice
   }
 
   def checkIfParentIsSelectClause(parent: Option[TreeNode]): Boolean = {
@@ -144,6 +148,71 @@ object LogicalNot extends ExpressionGenerator[LogicalNot] {
 }
 
 /**
+ * Creates an equi-join condition of the form
+ *
+ * left=(A = B) operator=AND right=(A = B) AND ...
+ *
+ */
+
+class EquiJoinConditionExpression(
+  val queryContext: QueryContext,
+  val parent: Option[TreeNode],
+  isLast: Boolean) extends BooleanExpression {
+
+  queryContext.allowedNestedExpressionCount -= 1
+
+  val operator: Operator = EQ
+  val numJoiningClauses = RandomUtils.choice(1,
+    scala.math.max(1, queryContext.allowedNestedExpressionCount))
+  val clauses: Seq[ValueExpression] = generateClauses
+
+  private def generateClauses: Seq[ValueExpression] = {
+    // Nesting is handled here by adding && clauses. Set the allowed nested expression count to 1.
+    val prevNesting = queryContext.allowedNestedExpressionCount
+    queryContext.allowedNestedExpressionCount = 1
+    val result = (0 until numJoiningClauses).map { i =>
+      Comparison(queryContext, Some(this), BooleanType,
+        isLast && i == numJoiningClauses - 1, forceEquality = true)
+    }
+    queryContext.allowedNestedExpressionCount = prevNesting
+    result
+  }
+
+  override def dataType: DataType[_] = BooleanType
+  override def sql: String = clauses.map(clause => s"(${clause.sql})").mkString(" && ")
+  override def name: String = clauses.mkString("_")
+  override def isAgg: Boolean = clauses.exists(_.isAgg)
+  override def columns: Seq[ColumnReference] = clauses.flatMap(_.columns)
+  override def nonAggColumns: Seq[ColumnReference] = clauses.flatMap(_.nonAggColumns)
+}
+
+
+/**
+ * Generator for equijoin conditions.
+ */
+object EquiJoinConditionExpression extends ExpressionGenerator[EquiJoinConditionExpression] {
+  def apply(
+    queryContext: QueryContext,
+    parent: Option[TreeNode],
+    requiredDataType: DataType[_],
+    isLast: Boolean): EquiJoinConditionExpression = {
+    require(requiredDataType == BooleanType,
+      "EquiJoinConditionExpression can only return BooleanType")
+    new EquiJoinConditionExpression(queryContext, parent, isLast)
+  }
+
+  override def canGeneratePrimitive: Boolean = false
+
+  override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
+    Array(BooleanType)
+  }
+
+  override def canGenerateRelational: Boolean = true
+  override def canGenerateNested: Boolean = true
+  override def canGenerateAggFunc: Boolean = false
+}
+
+/**
  * grammar1: left=booleanExpression operator=AND right=booleanExpression
  * grammar2: left=booleanExpression operator=OR right=booleanExpression
  *
@@ -157,6 +226,7 @@ class LogicalBinary(
   queryContext.allowedNestedExpressionCount -= 1
 
   val operator: Operator = RandomUtils.nextChoice(operators)
+
   val left: BooleanExpression = generateLeft
   val right: BooleanExpression = generateRight
 
@@ -188,11 +258,10 @@ class LogicalBinary(
  */
 object LogicalBinary extends ExpressionGenerator[LogicalBinary] {
   def apply(
-      queryContext: QueryContext,
-      parent: Option[TreeNode],
-      requiredDataType: DataType[_],
-      isLast: Boolean): LogicalBinary = {
-
+    queryContext: QueryContext,
+    parent: Option[TreeNode],
+    requiredDataType: DataType[_],
+    isLast: Boolean): LogicalBinary = {
     require(requiredDataType == BooleanType, "LogicalBinary can only return BooleanType")
     new LogicalBinary(queryContext, parent, isLast)
   }
@@ -351,7 +420,7 @@ object ExistQuery extends ExpressionGenerator[ExistQuery] {
   override def canGeneratePrimitive: Boolean = false
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
-    DataType.supportedDataTypes
+    DataType.supportedDataTypes(querySession.rqgConfig)
   }
 
   override def canGenerateRelational: Boolean = false

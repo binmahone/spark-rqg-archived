@@ -1,8 +1,10 @@
 package org.apache.spark.rqg.ast.expressions
 
 import org.apache.spark.rqg._
+import org.apache.spark.rqg.ast.expressions.BooleanExpression.filterChoicesForRequiredType
 import org.apache.spark.rqg.ast.{ExpressionGenerator, Operator, QueryContext, TreeNode}
 import org.apache.spark.rqg.ast.operators._
+import org.apache.spark.sql.types.StringType
 
 /**
  * valueExpression
@@ -29,7 +31,7 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
       requiredDataType: DataType[_],
       isLast: Boolean = false): ValueExpression = {
 
-    val filteredChoices = (if (querySession.needGeneratePrimitiveExpression) {
+    val filteredChoices = if (querySession.needGeneratePrimitiveExpression) {
       choices.filter(_.canGeneratePrimitive)
     } else if (querySession.needGenerateRelationalExpression) {
       choices.filter(_.canGenerateRelational)
@@ -39,8 +41,10 @@ object ValueExpression extends ExpressionGenerator[ValueExpression] {
       choices.filter(_.canGenerateNested)
     } else {
       choices
-    }).filter(_.possibleDataTypes(querySession).exists(requiredDataType.acceptsType))
-    RandomUtils.nextChoice(filteredChoices).apply(querySession, parent, requiredDataType, isLast)
+    }
+    val finalChoices = filterChoicesForRequiredType[ValueExpression](
+      querySession, requiredDataType, filteredChoices.toSeq)
+    RandomUtils.nextChoice(finalChoices.toArray).apply(querySession, parent, requiredDataType, isLast)
   }
 
   override def canGeneratePrimitive: Boolean = true
@@ -85,15 +89,10 @@ class ArithmeticUnary(
   }
 
   override def sql: String = s"${operator.op} (${valueExpression.sql})"
-
   override def name: String = s"${operator.name}_${valueExpression.name}"
-
   override def dataType: DataType[_] = valueExpression.dataType
-
   override def isAgg: Boolean = valueExpression.isAgg
-
   override def columns: Seq[ColumnReference] = valueExpression.columns
-
   override def nonAggColumns: Seq[ColumnReference] = valueExpression.nonAggColumns
 }
 
@@ -191,7 +190,11 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
   override def canGeneratePrimitive: Boolean = false
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] = {
-    ValueExpression.possibleDataTypes(querySession).filterNot(_ == BooleanType)
+    ValueExpression.possibleDataTypes(querySession).filter {
+      case _: NumericType[_] => true
+      case _: StringType => true
+      case _ => false
+    }
   }
 
   override def canGenerateRelational: Boolean = false
@@ -211,13 +214,19 @@ object ArithmeticBinary extends ExpressionGenerator[ArithmeticBinary] {
 class Comparison(
     val queryContext: QueryContext,
     val parent: Option[TreeNode],
-    isLast: Boolean) extends ValueExpression {
+    isLast: Boolean,
+    forceEquality: Boolean = false) extends ValueExpression {
 
   queryContext.allowedNestedExpressionCount -= 1
   queryContext.requiredRelationalExpressionCount -= 1
 
   val valueDataType: DataType[_] = chooseDataType
-  val operator: Operator = RandomUtils.nextChoice(operators)
+  val operator: Operator = if (forceEquality) {
+    // RandomUtils.nextChoice(Array(EQ, NSEQ))
+    EQ
+  } else {
+    RandomUtils.nextChoice(operators)
+  }
   val left: ValueExpression = generateLeft
   val right: ValueExpression = generateRight
 
@@ -227,12 +236,7 @@ class Comparison(
 
   override def sql: String = s"(${left.sql}) ${operator.op} (${right.sql})"
 
-  private def chooseDataType = {
-    queryContext.allowedDataTypes = DataType.joinableDataTypes
-    val dataType = RandomUtils.nextChoice(queryContext.commonDataTypesForJoin)
-    queryContext.allowedDataTypes = DataType.supportedDataTypes
-    dataType
-  }
+  private def chooseDataType = RandomUtils.nextChoice(queryContext.commonDataTypesForJoin)
 
   private def generateLeft: ValueExpression = {
     // For joinCriteria, we treat left and right expression as an independent new expression, and
@@ -296,10 +300,18 @@ object Comparison extends ExpressionGenerator[Comparison] {
       parent: Option[TreeNode],
       requiredDataType: DataType[_],
       isLast: Boolean): Comparison = {
-
     require(requiredDataType == BooleanType, "Comparison can only return BooleanType")
+    new Comparison(querySession, parent, isLast, forceEquality = false)
+  }
 
-    new Comparison(querySession, parent, isLast)
+  def apply(
+    querySession: QueryContext,
+    parent: Option[TreeNode],
+    requiredDataType: DataType[_],
+    isLast: Boolean,
+    forceEquality: Boolean): Comparison = {
+    require(requiredDataType == BooleanType, "Comparison can only return BooleanType")
+    new Comparison(querySession, parent, isLast, forceEquality)
   }
 
   override def canGeneratePrimitive: Boolean = false

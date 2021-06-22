@@ -14,12 +14,12 @@ class NamedExpression(
     requiredDataType: DataType[_],
     isLast: Boolean) extends Expression {
 
-  val expression: BooleanExpression = generateExpression
+  val expression: ValueExpression = generateExpression
 
   val alias = Some(querySession.nextAlias("expr"))
 
-  private def generateExpression: BooleanExpression = {
-    BooleanExpression(querySession, parent, requiredDataType, isLast)
+  private def generateExpression: ValueExpression = {
+    ValueExpression(querySession, parent, requiredDataType, isLast)
   }
 
   def name: String = alias.getOrElse(expression.name)
@@ -53,6 +53,6 @@ object NamedExpression extends ExpressionGenerator[NamedExpression] {
   override def canGenerateAggFunc: Boolean = false
 
   override def possibleDataTypes(querySession: QueryContext): Array[DataType[_]] =
-    DataType.supportedDataTypes
+    DataType.supportedDataTypes(querySession.rqgConfig)
 }
 

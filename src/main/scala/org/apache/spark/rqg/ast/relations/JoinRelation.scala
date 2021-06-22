@@ -19,7 +19,7 @@ class JoinRelation(
   val joinType: String =
     RandomUtils.choice(joinTypes, queryContext.rqgConfig.getWeight(RQGConfig.JOIN_TYPE)).name
   val relationPrimary: RelationPrimary = generateRelationPrimary
-  val joinCriteria: JoinCriteria = generateJoinCriteria
+  val joinCriteria: EquiJoinCriteria = generateJoinCriteria
 
   private def generateRelationPrimary: RelationPrimary = {
     val relationPrimary = RelationPrimary(queryContext, Some(this))
@@ -27,8 +27,8 @@ class JoinRelation(
     relationPrimary
   }
 
-  private def generateJoinCriteria: JoinCriteria = {
-    val joinCriteria = JoinCriteria(queryContext, Some(this))
+  private def generateJoinCriteria: EquiJoinCriteria = {
+    val joinCriteria = EquiJoinCriteria(queryContext, Some(this))
     // Reset querySession's joiningRelation after joinCriteria is generated
     queryContext.joiningRelation = None
     joinCriteria

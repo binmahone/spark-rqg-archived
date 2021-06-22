@@ -19,6 +19,7 @@ case class QueryGeneratorOptions(
     stopOnMismatch: Boolean = QueryGeneratorOptions.Defaults.stopOnMismatch,
     stopOnCrash: Boolean = QueryGeneratorOptions.Defaults.stopOnCrash,
     skipDbSetup: Boolean = QueryGeneratorOptions.Defaults.skipDbSetup,
+    useParquet: Boolean = QueryGeneratorOptions.Defaults.useParquet,
     queryCount: Int = QueryGeneratorOptions.Defaults.queryCount,
     batchSize: Int = QueryGeneratorOptions.Defaults.batchSize,
     configFile: String = QueryGeneratorOptions.Defaults.configFile,
@@ -79,6 +80,9 @@ object QueryGeneratorOptions {
           .action((i, c) => c.copy(skipDbSetup = i))
           .text("Skips setting up the database, assuming it was done already. Useful for repeated" +
             "runs of the RQG."),
+        opt[Boolean]("useParquet")
+            .action((i, c) => c.copy(useParquet = i))
+            .text("Force Parquet as the data source when loading tables."),
         opt[Int]("randomizationSeed")
           .action((i, c) => c.copy(randomizationSeed = i))
           .text(
@@ -116,6 +120,7 @@ object QueryGeneratorOptions {
     val batchSize = 20
     val configFile = ""
     val dryRun = false
+    val useParquet = false
   }
 
 }

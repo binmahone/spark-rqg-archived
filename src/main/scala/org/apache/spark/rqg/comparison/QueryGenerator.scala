@@ -67,7 +67,7 @@ object QueryGenerator extends Runner {
       val dbSetupQueries = tables.flatMap(
         table => Seq(
           toDropTableSql(options.dbName, table),
-          toCreateTableSql(options.dbName, warehouse, table)
+          toCreateTableSql(options.dbName, warehouse, table, options.useParquet)
         ))
 
       logInfo(s"--- Setting up in reference ---")
@@ -319,12 +319,14 @@ object QueryGenerator extends Runner {
   /**
    * Creates a CREATE TABLE query so Spark can see the table created by
    * [[org.apache.spark.rqg.comparison.DataGenerator]].
-   *
-   * TODO(shoumik): Lots of implicit assumptions about DataGenerator here...
-   * See [[org.apache.spark.rqg.RQGTable]].
    */
-  private def toCreateTableSql(dbName: String, warehouse: String, table: Table): String = {
+  private def toCreateTableSql(
+      dbName: String,
+      warehouse: String,
+      table: Table,
+      forceParquet: Boolean): String = {
     s"CREATE TABLE $dbName.${table.name} (${table.schemaString}) " +
+        (if (forceParquet) "USING PARQUET " else "") +
       s"LOCATION '$warehouse/$dbName.db/${table.name}'"
   }
 

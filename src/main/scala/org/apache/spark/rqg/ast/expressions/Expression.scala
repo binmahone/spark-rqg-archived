@@ -10,8 +10,8 @@ trait Expression {
   def name: String
   def dataType: DataType[_]
   def isAgg: Boolean
-  def sql: String
 
   def columns: Seq[ColumnReference]
   def nonAggColumns: Seq[ColumnReference]
+  def sql: String
 }

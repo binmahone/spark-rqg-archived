@@ -17,7 +17,8 @@ class TableReference(
 
   override def name: String = alias.getOrElse(table.name)
 
-  override def columns: Array[Column] = table.columns
+  override val columns: Array[Column] =
+    table.columns.map(c => Column(alias.get, c.name, c.dataType))
 
   override def dataTypes: Array[DataType[_]] = table.columns.map(_.dataType)
 }

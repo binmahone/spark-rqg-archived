@@ -44,9 +44,6 @@ sealed trait DataType[T] extends WeightedChoice {
   def toSql: String = sparkType.catalogString
 
   override def toString: String = toSql
-
-  // TODO(shoumik.palkar): Delete me.
-  def acceptsType(other: DataType[_]): Boolean = false
 }
 
 trait GenericDataType extends DataType[String] {
@@ -137,11 +134,6 @@ object DataType {
     }
     result
   }
-
-  // TODO(shoumik.palkar): For compilation. Will be removed both later to always take the RQGConfig
-  //   parameter.
-  def supportedDataTypes: Array[DataType[_]] = allDataTypes
-  def joinableDataTypes: Array[DataType[_]] = allDataTypes
 
   /**
    * Converts a `sparkType` into an RQG-internal type.

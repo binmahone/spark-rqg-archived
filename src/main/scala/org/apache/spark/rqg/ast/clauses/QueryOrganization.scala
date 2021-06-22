@@ -25,13 +25,9 @@ class QueryOrganization(
 
   val sortByClauseOption: Option[SortByClause] = generateSortByClause
 
-  private def generateLimitClause: Option[LimitClause] = {
-    if (RandomUtils.nextBoolean()) {
-      Some(LimitClause(queryContext, parent))
-    } else {
-      None
-    }
-  }
+  // Don't return limit for now because the yielded rows are nondeterministic and easily lead to
+  // false mismatches.
+  private def generateLimitClause: Option[LimitClause] = None
 
   private def generateOrderByClause: Option[OrderByClause] = {
     if (RandomUtils.nextBoolean()) {
