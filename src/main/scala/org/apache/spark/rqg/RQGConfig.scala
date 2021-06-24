@@ -43,6 +43,16 @@ class RQGConfig(config: Config) {
     }
   }
 
+  def getRandomSparkConfig: Map[String, String] = {
+    if (config.hasPath(RQGConfig.SPARK_CONF_TEMPLATE)) {
+      config.getConfig(RQGConfig.SPARK_CONF_TEMPLATE).entrySet().asScala.map { v =>
+        v.getKey -> RandomUtils.nextChoice(config.getStringList(s"${RQGConfig.SPARK_CONF_TEMPLATE}.${v.getKey}").asScala.toArray)
+      }.toMap
+    } else {
+      Map.empty
+    }
+  }
+
   def getReferenceSparkConfig: Map[String, String] = {
     getSparkConfig(RQGConfig.COMMON_SPARK_CONF) ++ getSparkConfig(RQGConfig.REFERENCE_SPARK_CONF)
   }
@@ -83,6 +93,9 @@ object RQGConfig {
   val COMMON_SPARK_CONF = s"$SPARK_CONF.COMMON"
   val REFERENCE_SPARK_CONF = s"$SPARK_CONF.REFERENCE"
   val TEST_SPARK_CONF = s"$SPARK_CONF.TEST"
+  // spark config key template with "knobs" as values
+  // we use this to randomly sample spark conf
+  val SPARK_CONF_TEMPLATE = "SPARK_CONF_TEMPLATE"
 
   /** ----------------- QUERY PROFILE ------------------- */
 

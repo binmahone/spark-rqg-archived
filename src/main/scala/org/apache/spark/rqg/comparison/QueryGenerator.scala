@@ -129,6 +129,9 @@ object QueryGenerator extends Runner {
 
     // Run each query with the given configurations.
     while (queryIdx < options.queryCount) {
+      val randomConf = rqgConfig.getRandomSparkConfig
+      logInfo("Random Spark Conf")
+      logInfo(randomConf.toString())
       //  Directory where information for this batch will be written.
       val batchDir = new Path(new Path(outputDirFile.toString), s"batch-$batchIdx")
       val numQueriesThisBatch = scala.math.min(options.queryCount - queryIdx, options.batchSize)
@@ -146,7 +149,7 @@ object QueryGenerator extends Runner {
 
       logInfo(s"--- Running reference ---")
       val (refResult, refLogFile) = refQueryRunner.runQueries(
-        queries, batchDir, "reference", rqgConfig.getReferenceSparkConfig)
+        queries, batchDir, "reference", rqgConfig.getReferenceSparkConfig ++ randomConf)
       assert(refResult.size == numQueriesThisBatch + tempViewSQL.length, s"${refResult.size}, $numQueriesThisBatch")
       if (refResult.exists(_.output == "CRASH")) {
         logInfo(
@@ -158,7 +161,7 @@ object QueryGenerator extends Runner {
 
       logInfo(s"--- Running test ---")
       val (testResult, testLogFile) = testQueryRunner.runQueries(
-        queries, batchDir, "test", rqgConfig.getTestSparkConfig)
+        queries, batchDir, "test", rqgConfig.getTestSparkConfig ++ randomConf)
       assert(refResult.size == numQueriesThisBatch + tempViewSQL.length)
       if (testResult.exists(_.output == "CRASH")) {
         logInfo(
@@ -378,8 +381,8 @@ object QueryGenerator extends Runner {
     while (failedCount < 100) {
       try {
         val createView = CreateView(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
-        sparkSession.sql(createView.sql)
-
+        val res = sparkSession.sql(createView.sql)
+        logInfo(createView.sql)
         return createView
       } catch {
         case e @ (_ : RQGEmptyChoiceException | _ : AnalysisException) =>
