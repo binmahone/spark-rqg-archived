@@ -23,6 +23,7 @@ case class QueryGeneratorOptions(
     queryCount: Int = QueryGeneratorOptions.Defaults.queryCount,
     batchSize: Int = QueryGeneratorOptions.Defaults.batchSize,
     configFile: String = QueryGeneratorOptions.Defaults.configFile,
+    generateViewsCount: Int = QueryGeneratorOptions.Defaults.generateViewsCount,
     // Run mode
     dryRun: Boolean = QueryGeneratorOptions.Defaults.dryRun)
   extends DatabaseOptions[QueryGeneratorOptions]
@@ -98,6 +99,9 @@ object QueryGeneratorOptions {
         opt[String]("configFile")
           .action((s, c) => c.copy(configFile = s))
           .text("Path to a configuration file with all tested systems."),
+        opt[Int]("generateViewsCount")
+          .action((i, c) => c.copy(generateViewsCount = i))
+          .text("Number of temporary views to generate."),
         note("\nOther Options"),
         help("help").text("prints this usage text")
       )
@@ -121,6 +125,7 @@ object QueryGeneratorOptions {
     val configFile = ""
     val dryRun = false
     val useParquet = false
+    val generateViewsCount = 10
   }
 
 }

@@ -4,11 +4,11 @@ import java.io.{File, PrintWriter}
 
 import scala.collection.mutable.ArrayBuffer
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rqg.ast.{Column, Query, QueryContext, Table}
+import org.apache.spark.rqg.ast.{Column, CreateView, Query, QueryContext, Table, ViewType}
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.parser.QueryGeneratorOptions
 import org.apache.spark.rqg.runner.{RQGQueryRunnerApp, SparkSubmitQueryRunner, SparkSubmitUtils}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{AnalysisException, SparkSession}
 import org.hibernate.jdbc.util.BasicFormatterImpl
 
 object QueryGenerator extends Runner {
@@ -107,6 +107,19 @@ object QueryGenerator extends Runner {
            |""".stripMargin)
     }
 
+    // create views
+    val createViewObjs = createViews(rqgConfig, tables, options.generateViewsCount)
+    val createViewTables = createViewObjs
+      .map(view => {
+        Table(s"${view.viewName}",
+          view.query.selectClause.namedExpressionSeq.filter(n => n.alias.isDefined)
+            .map(n => Column(view.viewName, n.alias.get, n.dataType)).toArray)
+      })
+    // SQL statements for temporary views
+    val tempViewSQL = createViewObjs.filter(_.viewType == ViewType.TEMPORARY).map(_.sql)
+    // append view relations to table relations
+    val tablesAndViews = tables ++ createViewTables
+
     // Run each query with the given configurations.
     while (queryIdx < options.queryCount) {
       //  Directory where information for this batch will be written.
@@ -117,7 +130,9 @@ object QueryGenerator extends Runner {
         s"($queryIdx-${queryIdx + numQueriesThisBatch} out of ${options.queryCount} total) =======")
       logInfo(s"Logging all batch info at $batchDir")
 
-      val queries = generateQueries(numQueriesThisBatch, rqgConfig, tables)
+      // prepend tempViewSQL statements because temp views are session-scoped
+      // so each runner needs to run the tempViewSQL statements everytime
+      val queries = tempViewSQL ++ generateQueries(numQueriesThisBatch, rqgConfig, tablesAndViews)
       val queryFile = new Path(batchDir, "queries.txt")
       SparkSubmitUtils.stringToFile(queries.mkString("\n"), Some(queryFile))
       logInfo(s"Wrote queries for batch $batchIdx to $queryFile")
@@ -125,7 +140,7 @@ object QueryGenerator extends Runner {
       logInfo(s"--- Running reference ---")
       val (refResult, refLogFile) = refQueryRunner.runQueries(
         queries, batchDir, "reference", rqgConfig.getReferenceSparkConfig)
-      assert(refResult.size == numQueriesThisBatch, s"${refResult.size}, $numQueriesThisBatch")
+      assert(refResult.size == numQueriesThisBatch + tempViewSQL.length, s"${refResult.size}, $numQueriesThisBatch")
       if (refResult.exists(_.output == "CRASH")) {
         logInfo(
           s"""!!!! CRASHED!
@@ -137,7 +152,7 @@ object QueryGenerator extends Runner {
       logInfo(s"--- Running test ---")
       val (testResult, testLogFile) = testQueryRunner.runQueries(
         queries, batchDir, "test", rqgConfig.getTestSparkConfig)
-      assert(refResult.size == numQueriesThisBatch)
+      assert(refResult.size == numQueriesThisBatch + tempViewSQL.length)
       if (testResult.exists(_.output == "CRASH")) {
         logInfo(
           s"""!!!! CRASHED!
@@ -300,13 +315,16 @@ object QueryGenerator extends Runner {
         }
         queries += querySQL
       } catch {
-        case e: RQGEmptyChoiceException =>
+        case e @ (_ : RQGEmptyChoiceException | _ : AnalysisException) =>
+          // catch AnalysisException here in case generated SQL query is invalid
+          // and queryDf.queryExecution.assertAnalyzed() throws the error
           logDebug(e.toString)
           failedCount += 1
       }
     }
     logDebug(s"Failed $failedCount times while generating queries")
     if (queries.size != numQueries) {
+      sparkSession.stop()
       sys.error("Failed too many times while generating queries")
     }
     queries.toArray
@@ -345,6 +363,29 @@ object QueryGenerator extends Runner {
       val tbl = Table(tableName, columns)
       tbl
     }
+  }
+
+  private def generateView(rqgConfig: RQGConfig, tables: Array[Table]): CreateView = {
+    var failedCount = 0
+    while (failedCount < 100) {
+      try {
+        val createView = CreateView(QueryContext(rqgConfig = rqgConfig, availableTables = tables))
+        sparkSession.sql(createView.sql)
+
+        return createView
+      } catch {
+        case e @ (_ : RQGEmptyChoiceException | _ : AnalysisException) =>
+          // catch AnalysisException here in case generated SQL query is invalid
+          logDebug(e.toString)
+          failedCount += 1
+      }
+    }
+    sparkSession.stop()
+    sys.error("Failed too many times while generating view")
+  }
+
+  private def createViews(rqgConfig: RQGConfig, tables: Array[Table], generateViewsCount: Int): Array[CreateView] = {
+    (1 to generateViewsCount).map(_ => generateView(rqgConfig, tables)).toArray
   }
 
   private def parseDataType(dataType: String): DataType[_] = {

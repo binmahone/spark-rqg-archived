@@ -1,7 +1,6 @@
 package org.apache.spark.rqg.ast.expressions
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.rqg._
 import org.apache.spark.rqg.ast.clauses.HavingClause
 import org.apache.spark.rqg.ast.relations.{JoinCriteria, JoinRelation, Relation, RelationPrimary}
@@ -299,7 +298,7 @@ class MakeArray(
     s"array(${values.map(_.sql).mkString(", ")})"
   }
 
-  override def name: String = "make_struct"
+  override def name: String = "make_array"
   override def dataType: DataType[_] = requiredDataType
   override def isAgg: Boolean = values.exists(_.isAgg)
   override def columns: Seq[ColumnReference] = values.flatMap(_.columns)
