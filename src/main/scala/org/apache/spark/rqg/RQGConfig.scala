@@ -1,8 +1,7 @@
 package org.apache.spark.rqg
 
 import scala.collection.JavaConverters._
-
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValue}
 
 class RQGConfig(config: Config) {
   def getBound(entry: RQGConfigEntry): (Int, Int) = {
@@ -62,6 +61,10 @@ class RQGConfig(config: Config) {
     } else {
       None
     }
+  }
+
+  def withValue(path: String, value: ConfigValue) = {
+    new RQGConfig(config.withValue(path, value))
   }
 }
 

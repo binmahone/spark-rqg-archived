@@ -298,6 +298,7 @@ class Predicated(
   private val usePredicate =
     !queryContext.needGeneratePrimitiveExpression &&
       !queryContext.needGenerateRelationalExpression &&
+      !queryContext.needGenerateAggFunction &&
       requiredDataType == BooleanType &&
       RandomUtils.nextBoolean()
 

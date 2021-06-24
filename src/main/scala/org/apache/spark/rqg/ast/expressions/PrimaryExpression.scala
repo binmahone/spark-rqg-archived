@@ -3,8 +3,9 @@ package org.apache.spark.rqg.ast.expressions
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.relations.{JoinCriteria, JoinRelation}
-import org.apache.spark.rqg.ast.{AggPreference, ExpressionGenerator, Function, Functions, NestedQuery, QueryContext, TreeNode}
+import org.apache.spark.rqg.ast.clauses.HavingClause
+import org.apache.spark.rqg.ast.relations.{JoinCriteria, JoinRelation, Relation, RelationPrimary}
+import org.apache.spark.rqg.ast.{AggPreference, Column, ExpressionGenerator, Function, Functions, NestedQuery, QueryContext, TreeNode}
 import org.apache.spark.sql.Row
 
 /**
@@ -502,8 +503,7 @@ class ColumnReference(
     val parent: Option[TreeNode],
     requiredDataType: DataType[_]) extends PrimaryExpression {
 
-  private val relation = generateRelation
-  private val column = generateColumn
+  val column: Column = generateColumn
 
   private def generateRelation = {
     if (queryContext.needColumnFromJoiningRelation) {
@@ -518,8 +518,14 @@ class ColumnReference(
   }
 
   private def generateColumn = {
-    val columns = relation.flattenedColumns.filter(c => requiredDataType.sameType(c.dataType))
-    RandomUtils.nextChoice(columns)
+    if (queryContext.availableColumns.isDefined) {
+      val columns = queryContext.availableColumns.get.filter(c => requiredDataType.sameType(c.dataType))
+      RandomUtils.nextChoice(columns)
+    } else {
+      val relation: RelationPrimary = generateRelation
+      val columns = relation.flattenedColumns.filter(c => requiredDataType.sameType(c.dataType))
+      RandomUtils.nextChoice(columns)
+    }
   }
 
   override def sql: String = column.sql

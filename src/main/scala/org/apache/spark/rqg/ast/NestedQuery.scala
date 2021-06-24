@@ -39,6 +39,7 @@ class NestedQuery(
   val whereClauseOption: Option[WhereClause] = generateWhereClauseOption
 
   val aggregationClauseOption: Option[AggregationClause] = generateAggregationClauseOption
+  val havingClauseOption: Option[HavingClause] = generateHavingClauseOption
 
   val queryOrganization: QueryOrganization = generateQueryOrganization
 
@@ -67,6 +68,15 @@ class NestedQuery(
     }
   }
 
+  private def generateHavingClauseOption: Option[HavingClause] = {
+    if (aggregationClauseOption.isDefined &&
+      RandomUtils.nextBoolean(queryContext.rqgConfig.getProbability(RQGConfig.HAVING))) {
+      Some(HavingClause(queryContext, Some(this)))
+    } else {
+      None
+    }
+  }
+
   private def generateQueryOrganization: QueryOrganization = {
     QueryOrganization(queryContext, Some(this))
   }
@@ -76,6 +86,7 @@ class NestedQuery(
       s"${fromClause.sql} " +
       s"${whereClauseOption.map(_.sql).getOrElse("")} " +
       s" ${aggregationClauseOption.map(_.sql).getOrElse("")} " +
+      s" ${havingClauseOption.map(_.sql).getOrElse("")} " +
       s"${queryOrganization.sql} "
 }
 

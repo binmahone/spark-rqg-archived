@@ -54,7 +54,8 @@ case class QueryContext(
     var requiredColumnCount: Int = 0,
     var needColumnFromJoiningRelation: Boolean = false,
     var aggPreference: Int = AggPreference.FORBID,
-    var nextAliasId: Int = 0) {
+    var nextAliasId: Int = 0,
+    var availableColumns: Option[Array[Column]] = None) {
 
   lazy val allowedFunctions: Seq[Function] = {
     rqgConfig.getWhitelistExpressions match {
