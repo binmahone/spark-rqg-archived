@@ -2,8 +2,7 @@ package org.apache.spark.rqg.ast.expressions
 
 import scala.collection.mutable
 import org.apache.spark.rqg._
-import org.apache.spark.rqg.ast.clauses.HavingClause
-import org.apache.spark.rqg.ast.relations.{JoinCriteria, JoinRelation, Relation, RelationPrimary}
+import org.apache.spark.rqg.ast.relations.{JoinCriteria, RelationPrimary}
 import org.apache.spark.rqg.ast.{AggPreference, Column, ExpressionGenerator, Function, Functions, NestedQuery, QueryContext, TreeNode}
 import org.apache.spark.sql.Row
 

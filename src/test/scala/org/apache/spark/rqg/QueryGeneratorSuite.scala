@@ -1,7 +1,7 @@
 package org.apache.spark.rqg
 
 import com.typesafe.config.ConfigValueFactory
-import org.apache.spark.rqg.ast.{Column, Query, QueryContext, Table}
+import org.apache.spark.rqg.ast.{Column, CreateView, Query, QueryContext, Table}
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
 class QueryGeneratorSuite extends FunSuite with BeforeAndAfter {
@@ -28,5 +28,12 @@ class QueryGeneratorSuite extends FunSuite with BeforeAndAfter {
 
     val querySQL = Query(QueryContext(rqgConfig = config, availableTables = Array(generateTable))).sql
     assert(querySQL.contains("HAVING"))
+  }
+
+  test("create view") {
+    val config = RQGConfig.load("rqg-defaults.conf")
+
+    val createViewSQL = CreateView(QueryContext(rqgConfig = config, availableTables = Array(generateTable))).sql
+    assert(createViewSQL.contains("VIEW"))
   }
 }
