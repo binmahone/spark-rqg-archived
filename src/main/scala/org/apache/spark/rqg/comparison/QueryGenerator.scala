@@ -115,8 +115,15 @@ object QueryGenerator extends Runner {
           view.query.selectClause.namedExpressionSeq.filter(n => n.alias.isDefined)
             .map(n => Column(view.viewName, n.alias.get, n.dataType)).toArray)
       })
-    // SQL statements for temporary views
+    // SQL statements for views
+    val dropViewSQL = createViewObjs.map(x => s"DROP VIEW IF EXISTS ${x.viewName}")
     val tempViewSQL = createViewObjs.filter(_.viewType == ViewType.TEMPORARY).map(_.sql)
+    val persistentViewSQL = createViewObjs.filter(_.viewType == ViewType.PERSISTENT).map(_.sql)
+    // submit drop view and create persistent view queries to runners
+    refQueryRunner.runQueries(dropViewSQL ++ persistentViewSQL,
+      new Path(new Path(outputDirFile.toString), "prepare-persistent-view"), "reference")
+    testQueryRunner.runQueries(dropViewSQL ++ persistentViewSQL,
+      new Path(new Path(outputDirFile.toString), "prepare-persistent-view"), "test")
     // append view relations to table relations
     val tablesAndViews = tables ++ createViewTables
 
@@ -351,7 +358,8 @@ object QueryGenerator extends Runner {
   private def describeTables(sparkSession: SparkSession, dbName: String): Array[Table] = {
     import  sparkSession.implicits._
     sparkSession.sql(s"USE $dbName")
-    val tableNames = sparkSession.sql("SHOW TABLES").select("tableName").as[String].collect()
+    // use 'LIKE' to filter out views
+    val tableNames = sparkSession.sql("SHOW TABLES LIKE 'table*'").select("tableName").as[String].collect()
     tableNames.map { tableName =>
       val result = sparkSession.sql(s"DESCRIBE $tableName")
         .select("col_name", "data_type").as[(String, String)].collect()

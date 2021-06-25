@@ -12,7 +12,7 @@ class CreateView(
   val viewType = RandomUtils.nextChoice(Array(ViewType.PERSISTENT, ViewType.TEMPORARY))
 
   override def sql: String = s"CREATE OR REPLACE " +
-    s"${if (viewType == ViewType.TEMPORARY) "TEMPORARY" else ""} " +
+    s"${if (viewType == ViewType.TEMPORARY) "TEMPORARY " else ""}" +
     s"VIEW ${viewName} AS ${query.sql}"
 }
 
