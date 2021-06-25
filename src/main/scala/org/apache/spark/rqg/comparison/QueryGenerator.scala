@@ -129,9 +129,12 @@ object QueryGenerator extends Runner {
 
     // Run each query with the given configurations.
     while (queryIdx < options.queryCount) {
-      val randomConf = rqgConfig.getRandomSparkConfig
-      logInfo("Random Spark Conf")
-      logInfo(randomConf.toString())
+      val randomConfRef = rqgConfig.getRandomSparkConfig
+      logInfo("Random Reference Spark Conf")
+      logInfo(randomConfRef.toString())
+      val randomConfTest= rqgConfig.getRandomSparkConfig
+      logInfo("Random Test Spark Conf")
+      logInfo(randomConfTest.toString())
       //  Directory where information for this batch will be written.
       val batchDir = new Path(new Path(outputDirFile.toString), s"batch-$batchIdx")
       val numQueriesThisBatch = scala.math.min(options.queryCount - queryIdx, options.batchSize)
@@ -149,7 +152,7 @@ object QueryGenerator extends Runner {
 
       logInfo(s"--- Running reference ---")
       val (refResult, refLogFile) = refQueryRunner.runQueries(
-        queries, batchDir, "reference", rqgConfig.getReferenceSparkConfig ++ randomConf)
+        queries, batchDir, "reference", rqgConfig.getReferenceSparkConfig ++ randomConfRef)
       assert(refResult.size == numQueriesThisBatch + tempViewSQL.length, s"${refResult.size}, $numQueriesThisBatch")
       if (refResult.exists(_.output == "CRASH")) {
         logInfo(
@@ -161,7 +164,7 @@ object QueryGenerator extends Runner {
 
       logInfo(s"--- Running test ---")
       val (testResult, testLogFile) = testQueryRunner.runQueries(
-        queries, batchDir, "test", rqgConfig.getTestSparkConfig ++ randomConf)
+        queries, batchDir, "test", rqgConfig.getTestSparkConfig ++ randomConfTest)
       assert(refResult.size == numQueriesThisBatch + tempViewSQL.length)
       if (testResult.exists(_.output == "CRASH")) {
         logInfo(
