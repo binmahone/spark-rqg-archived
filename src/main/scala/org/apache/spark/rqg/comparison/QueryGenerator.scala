@@ -185,22 +185,26 @@ object QueryGenerator extends Runner {
         sawCrash |= (status == "CRASH")
         sawMismatch |= (status == "MISMATCH")
 
-        // Counts as producing data if the query passed and the output was empty.
-        val producedData = refOutput.output.trim == "" &&
-          testOutput.output.trim == "" && status == "PASS"
-        if (producedData) {
-          numProducedData += 1
-        }
+        // Counts as producing data if the query passed and the output was non-empty.
+        val producedData = refOutput.output.trim != "" &&
+          testOutput.output.trim != "" && status == "PASS"
 
-        status match {
-          case "CRASH" | "EXCEPTION" =>
-            numFailed += 1
-          case "MISMATCH" =>
-            numMismatched += 1
-          case "SKIPPED" =>
-            numSkipped += 1
-          case _ =>
-            numPassed += 1
+        if (i >= tempViewSQL.length) {
+          // we only count actual queries in statistics count
+          if (producedData) {
+            numProducedData += 1
+          }
+
+          status match {
+            case "CRASH" | "EXCEPTION" =>
+              numFailed += 1
+            case "MISMATCH" =>
+              numMismatched += 1
+            case "SKIPPED" =>
+              numSkipped += 1
+            case _ =>
+              numPassed += 1
+          }
         }
 
         // Write to manifest and log to console.
